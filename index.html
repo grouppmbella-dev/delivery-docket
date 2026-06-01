@@ -63,7 +63,7 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
   .app,.nav,.topbar,.no-print{display:none!important}
   .print-area{display:block!important}
   @page{size:A4 portrait;margin:0}
-  .print-doc{padding:30mm!important}
+  .print-doc{padding:5mm!important}
 }
 .print-area{display:none}
 
@@ -560,29 +560,48 @@ function fmtDate(val) {
 function renderDocketList(dockets) {
   const container = document.getElementById('docket-list-container');
   if (dockets.length === 0) { container.innerHTML = '<div class="loading">No dockets found.</div>'; return; }
+
+  // Group by docNo, collect all items per docket
   const unique = {};
   dockets.forEach(r => {
-    if (!unique[r.docNo]) unique[r.docNo] = { ...r, itemCount: 0, pictures: [] };
+    if (!unique[r.docNo]) unique[r.docNo] = { ...r, itemCount: 0, pictures: [], descriptions: [], sendTos: [] };
     unique[r.docNo].itemCount++;
     if (r.picture) unique[r.docNo].pictures.push(r.picture);
+    if (r.description) unique[r.docNo].descriptions.push(r.description);
+    if (r.sendTo && !unique[r.docNo].sendTos.includes(r.sendTo)) unique[r.docNo].sendTos.push(r.sendTo);
   });
-  const list = Object.values(unique).reverse();
-  container.innerHTML = '<div class="docket-list">' + list.map(d => {
-    const thumbs = d.pictures.slice(0, 3).map(pic =>
-      `<img src="https://drive.google.com/thumbnail?id=${pic}&sz=w120" 
-            style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd;flex-shrink:0" 
-            onerror="this.style.display='none'" alt="">`
-    ).join('');
+
+  // Sort newest first by docNo number
+  const list = Object.values(unique).sort((a, b) => {
+    const numA = parseInt((a.docNo || '').split('/').pop()) || 0;
+    const numB = parseInt((b.docNo || '').split('/').pop()) || 0;
+    return numB - numA;
+  });
+
+  container.innerHTML = '<div class="docket-list">' + list.map((d, idx) => {
+    // Show up to 3 thumbnails - use lh3 for Drive File IDs
+    const thumbs = d.pictures.slice(0, 3).map(pic => {
+      const src = pic && pic.length > 20
+        ? `https://drive.google.com/thumbnail?id=${pic}&sz=w120`
+        : '';
+      return src ? `<img src="${src}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd;flex-shrink:0" onerror="this.style.display='none'" alt="">` : '';
+    }).join('');
+
     const thumbsHtml = thumbs
       ? `<div style="display:flex;gap:6px;align-items:center">${thumbs}</div>`
       : `<div style="width:64px;height:64px;border-radius:6px;border:1.5px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:24px;color:#ccc;flex-shrink:0">📷</div>`;
+
     return `
     <div class="docket-item" onclick="viewDocket('${d.docNo}')">
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;min-width:32px">
+        <span style="font-size:11px;color:#aaa;font-weight:600">${list.length - idx}</span>
+      </div>
       <div style="display:flex;align-items:center;gap:12px;flex:1">
         ${thumbsHtml}
-        <div>
+        <div style="min-width:0">
           <div style="font-weight:600;font-size:14px">${d.docNo}</div>
-          <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${fmtDateClean(d.requestDate)}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.jobNumber || '-'}</div>
+          <div style="font-size:11px;color:#888;margin-top:1px">Send to: ${d.sendTo || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${fmtDateClean(d.requestDate)}</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${badgeHtml(d.status)} ›</div>
@@ -591,14 +610,36 @@ function renderDocketList(dockets) {
 }
 
 function filterDockets() {
-  const q = document.getElementById('search-input').value.toLowerCase();
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
   const s = document.getElementById('status-filter').value;
-  const filtered = allDocketsCache.filter(r => {
-    const matchQ = !q || (r.docNo || '').toLowerCase().includes(q) || (r.project || '').toLowerCase().includes(q);
-    const matchS = !s || r.status === s;
+
+  // Group allDocketsCache by docNo first for searching across all fields
+  const unique = {};
+  allDocketsCache.forEach(r => {
+    if (!unique[r.docNo]) unique[r.docNo] = { ...r, itemCount: 0, pictures: [], allText: '' };
+    unique[r.docNo].itemCount++;
+    if (r.picture) unique[r.docNo].pictures.push(r.picture);
+    // Collect all searchable text per docket
+    unique[r.docNo].allText += ' ' + [
+      r.docNo, r.project, r.jobNumber, r.sendTo,
+      r.nameIssueBy, r.nameCheckBy, r.nameDeliveryBy, r.nameReceivedBy,
+      r.description, r.remark, r.requestDate
+    ].join(' ').toLowerCase();
+  });
+
+  const list = Object.values(unique).filter(d => {
+    const matchQ = !q || d.allText.includes(q);
+    const matchS = !s || d.status === s;
     return matchQ && matchS;
   });
-  renderDocketList(filtered);
+
+  if (list.length === 0) {
+    document.getElementById('docket-list-container').innerHTML = '<div class="loading">No results found.</div>';
+    return;
+  }
+
+  // Re-render with filtered list using same format
+  renderDocketList(allDocketsCache.filter(r => list.some(d => d.docNo === r.docNo)));
 }
 
 // ---- DETAIL ----
