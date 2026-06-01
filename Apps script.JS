@@ -31,8 +31,8 @@ function getNextDocNo() {
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
   const year = new Date().getFullYear();
-  if (lastRow <= 1) return 'DDPM/' + year + '/0001';
-  const data = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  if (lastRow <= 2) return 'DDPM/' + year + '/0001';
+  const data = sheet.getRange(3, 2, lastRow - 2, 1).getValues();
   const docNos = data.map(r => r[0]).filter(v => v !== '');
   const unique = [...new Set(docNos)];
   const thisYear = unique.filter(d => String(d).includes('/' + year + '/'));
@@ -60,6 +60,7 @@ function createDocket(data) {
   const docNo = getNextDocNo();
   const items = data.items;
   let rowNo = getNextRowNo();
+  // Ensure we start appending from row 3 onwards
   items.forEach((item, index) => {
     sheet.appendRow([
       rowNo++,
@@ -96,8 +97,9 @@ function createDocket(data) {
 function getDockets() {
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return { success: true, data: [] };
-  const data = sheet.getRange(2, 1, lastRow - 1, 30).getValues();
+  if (lastRow <= 2) return { success: true, data: [] };
+  // Start from row 3 (skip row1=title, row2=headers)
+  const data = sheet.getRange(3, 1, lastRow - 2, 30).getValues();
   const headers = ['docNoNo','docNo','requestDate','project','jobNumber','sendTo',
     'itemNo','description','qty','unit','picture','remark',
     'nameIssueBy','issueDate','issueSigned','issueSignedDate',
@@ -105,7 +107,7 @@ function getDockets() {
     'nameDeliveryBy','deliveryDate','deliverySigned','deliverySignedDate',
     'carNumberPlate','nameReceivedBy','receivedDate','receivedSigned',
     'receivedSignedDate','status'];
-  const result = data.filter(row => row[1] !== '' && row[1] !== null).map(row => {
+  const result = data.filter(row => row[1] !== '' && row[1] !== null && row[1] !== 'Doc.no').map(row => {
     const obj = {};
     headers.forEach((h, i) => obj[h] = row[i]);
     return obj;
@@ -116,7 +118,8 @@ function getDockets() {
 function getDocketById(docNo) {
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
-  const data = sheet.getRange(2, 1, lastRow - 1, 30).getValues();
+  if (lastRow <= 2) return { success: true, data: [] };
+  const data = sheet.getRange(3, 1, lastRow - 2, 30).getValues();
   const headers = ['docNoNo','docNo','requestDate','project','jobNumber','sendTo',
     'itemNo','description','qty','unit','picture','remark',
     'nameIssueBy','issueDate','issueSigned','issueSignedDate',
@@ -234,16 +237,17 @@ function updateDocket(data) {
 function updateSigned(data) {
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
-  const allData = sheet.getRange(2, 1, lastRow - 1, 30).getValues();
+  if (lastRow <= 2) return { success: false, error: 'No data' };
+  const allData = sheet.getRange(3, 1, lastRow - 2, 30).getValues();
   const colMap = { 'issue': [15, 16], 'check': [19, 20], 'delivery': [23, 24], 'received': [29, 30] };
   const statusMap = { 'issue': 'Issued', 'delivery': 'Delivered', 'received': 'Completed' };
   const today = new Date().toLocaleDateString('en-GB');
   allData.forEach((row, index) => {
     if (row[1] === data.docNo) {
       const cols = colMap[data.type];
-      sheet.getRange(index + 2, cols[0]).setValue('Signed');
-      sheet.getRange(index + 2, cols[1]).setValue(today);
-      if (statusMap[data.type]) sheet.getRange(index + 2, 30).setValue(statusMap[data.type]);
+      sheet.getRange(index + 3, cols[0]).setValue('Signed');
+      sheet.getRange(index + 3, cols[1]).setValue(today);
+      if (statusMap[data.type]) sheet.getRange(index + 3, 30).setValue(statusMap[data.type]);
     }
   });
   return { success: true };
