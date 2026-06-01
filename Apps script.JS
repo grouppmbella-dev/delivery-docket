@@ -19,6 +19,7 @@ function doGet(e) {
   if (action === 'getDockets') return response(getDockets());
   if (action === 'getDocketById') return response(getDocketById(e.parameter.docNo));
   if (action === 'getLogoBase64') return response(getLogoBase64());
+  if (action === 'fixPictureFileIds') return response(fixPictureFileIds());
 }
 
 function getSheet() {
@@ -220,6 +221,41 @@ function uploadImage(data) {
   const file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return { success: true, fileId: file.getId(), fileName: data.fileName };
+}
+
+// Find File ID by filename in DD Images folder
+function getFileIdByName(fileName) {
+  try {
+    const folder = getDDImagesFolder();
+    const files = folder.getFilesByName(fileName);
+    if (files.hasNext()) {
+      const file = files.next();
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      return file.getId();
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+// Convert all filename-based pictures to File IDs in the sheet
+function fixPictureFileIds() {
+  const sheet = getSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 2) return { success: true, fixed: 0 };
+  const data = sheet.getRange(2, 1, lastRow - 1, 11).getValues();
+  let fixed = 0;
+  data.forEach((row, i) => {
+    const pic = String(row[10] || '').trim();
+    // If picture looks like a filename (has extension) not a File ID
+    if (pic && pic.includes('.') && pic.length < 50) {
+      const fileId = getFileIdByName(pic);
+      if (fileId) {
+        sheet.getRange(i + 2, 11).setValue(fileId);
+        fixed++;
+      }
+    }
+  });
+  return { success: true, fixed: fixed };
 }
 
 function getDDImagesFolder() {
