@@ -44,7 +44,7 @@ function getNextRowNo() {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return 1;
   const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const nums = data.map(r => r[0]).filter(v => v !== '');
+  const nums = data.map(r => r[0]).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
   if (nums.length === 0) return 1;
   return Math.max(...nums) + 1;
 }
@@ -99,7 +99,7 @@ function getDockets() {
     'nameDeliveryBy','deliveryDate','deliverySigned','deliverySignedDate',
     'carNumberPlate','nameReceivedBy','receivedDate','receivedSigned',
     'receivedSignedDate','status'];
-  const result = data.filter(row => row[0] !== '').map(row => {
+  const result = data.filter(row => row[1] !== '' && row[1] !== null).map(row => {
     const obj = {};
     headers.forEach((h, i) => obj[h] = row[i]);
     return obj;
