@@ -7,6 +7,7 @@ function doPost(e) {
     const action = data.action;
     if (action === 'createDocket') return response(createDocket(data));
     if (action === 'updateSigned') return response(updateSigned(data));
+    if (action === 'updateDocket') return response(updateDocket(data));
     if (action === 'uploadImage') return response(uploadImage(data));
   } catch(err) {
     return response({ success: false, error: err.message });
@@ -44,7 +45,10 @@ function getNextRowNo() {
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return 1;
   const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const nums = data.map(r => r[0]).filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+  // Filter only valid positive integers (not text, not #NUM!, not formulas)
+  const nums = data
+    .map(r => r[0])
+    .filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v) && v > 0 && Math.floor(v) === v);
   if (nums.length === 0) return 1;
   return Math.max(...nums) + 1;
 }
@@ -126,6 +130,66 @@ function getDocketById(docNo) {
       return obj;
     });
   return { success: true, data: items };
+}
+
+function updateDocket(data) {
+  const sheet = getSheet();
+  const lastRow = sheet.getLastRow();
+  const allData = sheet.getRange(2, 1, lastRow - 1, 30).getValues();
+
+  // Find all rows with this docNo
+  const rowIndices = [];
+  allData.forEach((row, i) => { if (row[1] === data.docNo) rowIndices.push(i); });
+  if (rowIndices.length === 0) return { success: false, error: 'Docket not found' };
+
+  const items = data.items;
+
+  // Delete old rows (from bottom to top to avoid index shift)
+  for (let i = rowIndices.length - 1; i >= 0; i--) {
+    sheet.deleteRow(rowIndices[i] + 2);
+  }
+
+  // Re-insert updated rows at original first position
+  const insertAt = rowIndices[0] + 2;
+  const existingFirst = allData[rowIndices[0]];
+
+  items.forEach((item, index) => {
+    sheet.insertRowBefore(insertAt + index);
+    sheet.getRange(insertAt + index, 1, 1, 30).setValues([[
+      existingFirst[0],          // Doc.no-no (keep original)
+      data.docNo,                // Doc.no (keep)
+      data.requestDate,
+      data.project,
+      data.jobNumber,
+      data.sendTo,
+      index + 1,
+      item.description,
+      item.qty,
+      item.unit,
+      item.fileId || item.picture || '',
+      item.remark || '',
+      data.nameIssueBy,
+      data.issueDate,
+      existingFirst[14] || '',   // issueSigned (keep)
+      existingFirst[15] || '',   // issueSignedDate (keep)
+      data.nameCheckBy,
+      data.checkDate,
+      existingFirst[18] || '',   // checkSigned (keep)
+      existingFirst[19] || '',   // checkSignedDate (keep)
+      data.nameDeliveryBy,
+      data.deliveryDate,
+      existingFirst[22] || '',   // deliverySigned (keep)
+      existingFirst[23] || '',   // deliverySignedDate (keep)
+      data.carNumberPlate,
+      data.nameReceivedBy,
+      data.receivedDate,
+      existingFirst[27] || '',   // receivedSigned (keep)
+      existingFirst[28] || '',   // receivedSignedDate (keep)
+      existingFirst[29] || 'Draft' // status (keep)
+    ]]);
+  });
+
+  return { success: true };
 }
 
 function updateSigned(data) {
