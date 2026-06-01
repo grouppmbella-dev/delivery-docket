@@ -62,7 +62,7 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
   body{background:#fff}
   .app,.nav,.topbar,.no-print{display:none!important}
   .print-area{display:block!important}
-  @page{size:A4 portrait;margin:12mm 10mm 18mm 10mm}
+  @page{size:A4 portrait;margin:15mm 15mm 20mm 15mm}
 }
 .print-area{display:none}
 
@@ -295,6 +295,7 @@ function getFormItems() {
       imageData: uploadedFiles[n]?.base64 || null,
       mimeType: uploadedFiles[n]?.mimeType || null,
       fileName: uploadedFiles[n]?.fileName || null,
+      previewUrl: uploadedFiles[n]?.base64 ? ('data:' + (uploadedFiles[n].mimeType||'image/jpeg') + ';base64,' + uploadedFiles[n].base64) : null,
     });
   });
   return { items, valid };
@@ -330,9 +331,11 @@ function buildPrintPage(items, header, totalPages, pageNum) {
       <td>${item.description || '-'}</td>
       <td style="text-align:center">${item.qty || '-'}</td>
       <td style="text-align:center">${item.unit || '-'}</td>
-      <td style="text-align:center">${item.picture
-        ? `<img src="https://drive.google.com/thumbnail?id=${item.picture}&sz=w60" style="width:46px;height:46px;object-fit:cover;border-radius:3px" alt="">`
-        : '—'}</td>
+      <td style="text-align:center">${item.previewUrl
+        ? `<img src="${item.previewUrl}" style="width:46px;height:46px;object-fit:cover;border-radius:3px" alt="">`
+        : item.picture
+          ? `<img src="https://drive.google.com/thumbnail?id=${item.picture}&sz=w60" style="width:46px;height:46px;object-fit:cover;border-radius:3px" alt="">`
+          : '—'}</td>
       <td>${item.remark || '—'}</td>
     </tr>`).join('');
 
