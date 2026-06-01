@@ -62,7 +62,8 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
   body{background:#fff}
   .app,.nav,.topbar,.no-print{display:none!important}
   .print-area{display:block!important}
-  @page{size:A4 portrait;margin:30mm 30mm 30mm 30mm}
+  @page{size:A4 portrait;margin:30mm 30mm 30mm 30mm !important}
+  html,body{margin:0!important;padding:0!important}
 }
 .print-area{display:none}
 
@@ -205,7 +206,10 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
     <div class="no-print" style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
       <button class="btn btn-sm" onclick="showPage('list')">← Back</button>
       <div style="flex:1"></div>
-      <button class="btn btn-print btn-sm" onclick="printCurrentDetail()">⎙ Print</button>
+      <button class="btn btn-sm" id="btn-edit-detail" onclick="toggleEditMode()" style="border-color:#f59e0b;color:#92400e;background:#fffbeb">✏️ Edit</button>
+      <button class="btn btn-sm btn-primary" id="btn-save-edit" onclick="saveEdit()" style="display:none">💾 Save changes</button>
+      <button class="btn btn-sm" id="btn-cancel-edit" onclick="cancelEdit()" style="display:none">✕ Cancel</button>
+      <button class="btn btn-print btn-sm" id="btn-print-detail" onclick="printCurrentDetail()">⎙ Print</button>
     </div>
     <div id="msg-detail" class="msg"></div>
     <div id="detail-container"></div>
@@ -597,6 +601,12 @@ function filterDockets() {
 async function viewDocket(docNo) {
   showPage('detail');
   currentDocketItems = null;
+  currentDocNo = docNo;
+  editMode = false;
+  document.getElementById('btn-edit-detail').style.display = 'inline-block';
+  document.getElementById('btn-save-edit').style.display = 'none';
+  document.getElementById('btn-cancel-edit').style.display = 'none';
+  document.getElementById('btn-print-detail').style.display = 'inline-block';
   const container = document.getElementById('detail-container');
   container.innerHTML = '<div class="loading">Loading...</div>';
   try {
@@ -661,13 +671,243 @@ async function viewDocket(docNo) {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           ${signedVals[i] === 'Signed'
-            ? `<span class="badge badge-completed">✓ Signed ${dateVals[i] || ''}</span>`
+            ? `<span class="badge badge-completed">✓ Signed ${fmtDateClean(dateVals[i])}</span>`
             : `<button class="btn btn-sm btn-success no-print" onclick="markSigned('${docNo}','${type}')">Mark signed</button><span style="font-size:12px;color:#aaa">⏳ Pending</span>`}
         </div>`;
       signRows.appendChild(row);
     });
 
   } catch (e) { container.innerHTML = '<div class="loading">Connection error.</div>'; }
+}
+
+let editMode = false;
+let currentDocNo = null;
+
+function toggleEditMode() {
+  editMode = true;
+  document.getElementById('btn-edit-detail').style.display = 'none';
+  document.getElementById('btn-save-edit').style.display = 'inline-block';
+  document.getElementById('btn-cancel-edit').style.display = 'inline-block';
+  document.getElementById('btn-print-detail').style.display = 'none';
+
+  const d = currentDocketItems[0];
+  const items = currentDocketItems;
+
+  document.getElementById('detail-container').innerHTML = `
+    <div class="card">
+      <div class="section-title">Docket information <span style="font-size:11px;color:#f59e0b;font-weight:400">(Doc.no: ${currentDocNo} — cannot be changed)</span></div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="field"><label>Request date</label><input type="date" id="e-reqdate" value="${toInputDate(d.requestDate)}"></div>
+        <div class="field"><label>Project</label><input type="text" id="e-project" value="${d.project||''}"></div>
+        <div class="field"><label>Job number</label><input type="text" id="e-jobno" value="${d.jobNumber||''}"></div>
+      </div>
+      <div class="field"><label>Send to</label><input type="text" id="e-sendto" value="${d.sendTo||''}"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">Items</div>
+        <button class="btn btn-sm" onclick="addEditItem()">＋ Add item</button>
+      </div>
+      <table class="items-table">
+        <thead><tr>
+          <th style="width:36px">No.</th>
+          <th>Description</th>
+          <th style="width:65px">Qty</th>
+          <th style="width:75px">Unit</th>
+          <th style="width:110px">Picture</th>
+          <th>Remark</th>
+          <th style="width:32px"></th>
+        </tr></thead>
+        <tbody id="edit-items-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Responsible persons</div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="field"><label>Issue by</label><input type="text" id="e-issueby" value="${d.nameIssueBy||''}"></div>
+        <div class="field"><label>Issue date</label><input type="date" id="e-issuedate" value="${toInputDate(d.issueDate)}"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="field"><label>Check by</label><input type="text" id="e-checkby" value="${d.nameCheckBy||''}"></div>
+        <div class="field"><label>Check date</label><input type="date" id="e-checkdate" value="${toInputDate(d.checkDate)}"></div>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="field"><label>Delivery by</label><input type="text" id="e-deliveryby" value="${d.nameDeliveryBy||''}"></div>
+        <div class="field"><label>Car number plate</label><input type="text" id="e-carplate" value="${d.carNumberPlate||''}"></div>
+        <div class="field"><label>Delivery date</label><input type="date" id="e-deliverydate" value="${toInputDate(d.deliveryDate)}"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Received by</label><input type="text" id="e-receivedby" value="${d.nameReceivedBy||''}"></div>
+        <div class="field"><label>Received date</label><input type="date" id="e-receiveddate" value="${toInputDate(d.receivedDate)}"></div>
+      </div>
+    </div>`;
+
+  // Populate edit items
+  let editItemCount = 0;
+  const editUploadedFiles = {};
+  window._editItemCount = 0;
+  window._editUploadedFiles = {};
+  items.forEach(item => {
+    window._editItemCount++;
+    const n = window._editItemCount;
+    const tbody = document.getElementById('edit-items-body');
+    const tr = document.createElement('tr');
+    tr.id = 'edit-item-row-' + n;
+    tr.innerHTML = `
+      <td style="text-align:center;color:#888">${n}</td>
+      <td><input type="text" placeholder="Description" id="e-desc-${n}" value="${item.description||''}"></td>
+      <td><input type="number" id="e-qty-${n}" value="${item.qty||''}"></td>
+      <td><input type="text" id="e-unit-${n}" value="${item.unit||''}"></td>
+      <td>
+        <input type="file" accept="image/*" id="e-file-${n}" style="display:none" onchange="handleEditFile(${n},this)">
+        <button class="btn btn-sm" onclick="document.getElementById('e-file-${n}').click()">📷</button>
+        <div id="e-fname-${n}" style="font-size:10px;color:#888">${item.picture ? '✓ photo' : ''}</div>
+        <input type="hidden" id="e-picid-${n}" value="${item.picture||''}">
+      </td>
+      <td><input type="text" id="e-remark-${n}" value="${item.remark||''}"></td>
+      <td><button class="btn btn-sm" onclick="removeEditItem(${n})" style="color:#c0392b">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function toInputDate(val) {
+  if (!val) return '';
+  const s = String(val);
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toISOString().split('T')[0];
+  }
+  // dd/mm/yyyy → yyyy-mm-dd
+  if (s.includes('/')) {
+    const parts = s.split('/');
+    if (parts.length === 3) return parts[2]+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0');
+  }
+  return s;
+}
+
+function addEditItem() {
+  window._editItemCount = (window._editItemCount || 0) + 1;
+  const n = window._editItemCount;
+  const tbody = document.getElementById('edit-items-body');
+  const tr = document.createElement('tr');
+  tr.id = 'edit-item-row-' + n;
+  tr.innerHTML = `
+    <td style="text-align:center;color:#888">${n}</td>
+    <td><input type="text" placeholder="Description" id="e-desc-${n}"></td>
+    <td><input type="number" placeholder="0" id="e-qty-${n}"></td>
+    <td><input type="text" placeholder="pcs/set/m" id="e-unit-${n}"></td>
+    <td>
+      <input type="file" accept="image/*" id="e-file-${n}" style="display:none" onchange="handleEditFile(${n},this)">
+      <button class="btn btn-sm" onclick="document.getElementById('e-file-${n}').click()">📷</button>
+      <div id="e-fname-${n}" style="font-size:10px;color:#888"></div>
+      <input type="hidden" id="e-picid-${n}" value="">
+    </td>
+    <td><input type="text" placeholder="Remark" id="e-remark-${n}"></td>
+    <td><button class="btn btn-sm" onclick="removeEditItem(${n})" style="color:#c0392b">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function removeEditItem(n) {
+  const row = document.getElementById('edit-item-row-' + n);
+  if (row) row.remove();
+}
+
+function handleEditFile(n, input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('e-fname-' + n).textContent = file.name;
+  if (!window._editUploadedFiles) window._editUploadedFiles = {};
+  const reader = new FileReader();
+  reader.onload = e => {
+    window._editUploadedFiles[n] = { base64: e.target.result.split(',')[1], mimeType: file.type, fileName: file.name };
+  };
+  reader.readAsDataURL(file);
+}
+
+function cancelEdit() {
+  editMode = false;
+  document.getElementById('btn-edit-detail').style.display = 'inline-block';
+  document.getElementById('btn-save-edit').style.display = 'none';
+  document.getElementById('btn-cancel-edit').style.display = 'none';
+  document.getElementById('btn-print-detail').style.display = 'inline-block';
+  viewDocket(currentDocNo);
+}
+
+async function saveEdit() {
+  const rows = document.querySelectorAll('#edit-items-body tr');
+  if (rows.length === 0) { showMsg('msg-detail', 'Please add at least one item.', 'error'); return; }
+
+  const items = [];
+  let valid = true;
+  rows.forEach(row => {
+    const n = row.id.replace('edit-item-row-', '');
+    const desc = document.getElementById('e-desc-' + n)?.value || '';
+    if (!desc) { valid = false; return; }
+    const existingPicId = document.getElementById('e-picid-' + n)?.value || '';
+    items.push({
+      description: desc,
+      qty: document.getElementById('e-qty-' + n)?.value || '',
+      unit: document.getElementById('e-unit-' + n)?.value || '',
+      picture: existingPicId,
+      remark: document.getElementById('e-remark-' + n)?.value || '',
+      imageData: window._editUploadedFiles?.[n]?.base64 || null,
+      mimeType: window._editUploadedFiles?.[n]?.mimeType || null,
+      fileName: window._editUploadedFiles?.[n]?.fileName || null,
+    });
+  });
+  if (!valid) { showMsg('msg-detail', 'Please fill in description for all items.', 'error'); return; }
+
+  // Upload new images
+  showMsg('msg-detail', 'Uploading images...', 'success');
+  for (let item of items) {
+    if (item.imageData) {
+      try {
+        const res = await fetch(API, { method: 'POST', body: JSON.stringify({
+          action: 'uploadImage', imageData: item.imageData, mimeType: item.mimeType, fileName: item.fileName
+        })});
+        const data = await res.json();
+        if (data.success) item.fileId = data.fileId;
+      } catch(e) {}
+    }
+  }
+
+  showMsg('msg-detail', 'Saving...', 'success');
+  const payload = {
+    action: 'updateDocket',
+    docNo: currentDocNo,
+    requestDate: document.getElementById('e-reqdate').value,
+    project: document.getElementById('e-project').value,
+    jobNumber: document.getElementById('e-jobno').value,
+    sendTo: document.getElementById('e-sendto').value,
+    nameIssueBy: document.getElementById('e-issueby').value,
+    issueDate: document.getElementById('e-issuedate').value,
+    nameCheckBy: document.getElementById('e-checkby').value,
+    checkDate: document.getElementById('e-checkdate').value,
+    nameDeliveryBy: document.getElementById('e-deliveryby').value,
+    deliveryDate: document.getElementById('e-deliverydate').value,
+    carNumberPlate: document.getElementById('e-carplate').value,
+    nameReceivedBy: document.getElementById('e-receivedby').value,
+    receivedDate: document.getElementById('e-receiveddate').value,
+    items
+  };
+
+  try {
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      showMsg('msg-detail', '✓ Updated successfully!', 'success');
+      editMode = false;
+      document.getElementById('btn-edit-detail').style.display = 'inline-block';
+      document.getElementById('btn-save-edit').style.display = 'none';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
+      document.getElementById('btn-print-detail').style.display = 'inline-block';
+      viewDocket(currentDocNo);
+    } else {
+      showMsg('msg-detail', 'Error: ' + (data.error || 'Unknown'), 'error');
+    }
+  } catch(e) { showMsg('msg-detail', 'Connection error.', 'error'); }
 }
 
 async function markSigned(docNo, type) {
@@ -680,21 +920,18 @@ async function markSigned(docNo, type) {
   } catch (e) { showMsg('msg-detail', 'Connection error.', 'error'); }
 }
 
-// Load logo via API
+// Logo - fetch via Apps Script to bypass CORS
 let logoDataUrl = null;
 async function loadLogo() {
   try {
     const res = await fetch(API + '?action=getLogoBase64');
     const data = await res.json();
-    if (data.success) {
+    if (data.success && data.dataUrl) {
       logoDataUrl = data.dataUrl;
-      const logoEl = document.getElementById('company-logo');
-      const fallbackEl = document.getElementById('logo-fallback');
-      logoEl.src = logoDataUrl;
-      logoEl.style.display = 'block';
-      fallbackEl.style.display = 'none';
-      const printLogo = document.getElementById('print-logo');
-      if (printLogo) printLogo.src = logoDataUrl;
+      const el = document.getElementById('company-logo');
+      el.src = logoDataUrl;
+      el.style.display = 'block';
+      document.getElementById('logo-fallback').style.display = 'none';
     }
   } catch(e) { console.log('Logo load failed', e); }
 }
