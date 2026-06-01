@@ -62,7 +62,7 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
   body{background:#fff}
   .app,.nav,.topbar,.no-print{display:none!important}
   .print-area{display:block!important}
-  @page{size:A4 portrait;margin:15mm 15mm 20mm 15mm}
+  @page{size:A4 portrait;margin:30mm 30mm 30mm 30mm}
 }
 .print-area{display:none}
 
@@ -372,7 +372,7 @@ function buildPrintPage(items, header, totalPages, pageNum) {
       <tbody>
         <tr>
           <td style="padding:7px 10px;font-weight:700;font-size:13px;border-right:1px solid #ddd">${d.docNo || 'DRAFT'}</td>
-          <td style="padding:7px 10px;font-weight:600;font-size:12px;border-right:1px solid #ddd">${d.requestDate || '-'}</td>
+          <td style="padding:7px 10px;font-weight:600;font-size:12px;border-right:1px solid #ddd">${fmtDateClean(d.requestDate)}</td>
           <td style="padding:7px 10px;font-weight:600;font-size:12px;border-right:1px solid #ddd">${d.project || '-'}</td>
           <td style="padding:7px 10px;font-weight:600;font-size:12px">${d.jobNumber || '-'}</td>
         </tr>
@@ -407,25 +407,25 @@ function buildPrintPage(items, header, totalPages, pageNum) {
       <div class="sign-col">
         <div class="sign-col-label">Issue by</div>
         <div class="sign-col-name">${d.nameIssueBy || ''}</div>
-        <div class="sign-col-date">${d.issueDate || ''}</div>
+        <div class="sign-col-date">${fmtDateClean(d.issueDate)}</div>
         <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
       </div>
       <div class="sign-col">
         <div class="sign-col-label">Check by</div>
         <div class="sign-col-name">${d.nameCheckBy || ''}</div>
-        <div class="sign-col-date">${d.checkDate || ''}</div>
+        <div class="sign-col-date">${fmtDateClean(d.checkDate)}</div>
         <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
       </div>
       <div class="sign-col">
         <div class="sign-col-label">Delivery by</div>
         <div class="sign-col-name">${d.nameDeliveryBy || ''}</div>
-        <div class="sign-col-date">${d.deliveryDate || ''}${d.carNumberPlate ? ' · ' + d.carNumberPlate : ''}</div>
+        <div class="sign-col-date">${fmtDateClean(d.deliveryDate)}${d.carNumberPlate ? ' · ' + d.carNumberPlate : ''}</div>
         <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
       </div>
       <div class="sign-col">
         <div class="sign-col-label">Received by</div>
         <div class="sign-col-name">${d.nameReceivedBy || ''}</div>
-        <div class="sign-col-date">${d.receivedDate || ''}</div>
+        <div class="sign-col-date">${fmtDateClean(d.receivedDate)}</div>
         <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
       </div>
     </div>
@@ -530,6 +530,18 @@ async function loadDockets() {
   } catch (e) { container.innerHTML = '<div class="loading">Connection error.</div>'; }
 }
 
+function fmtDateClean(val) {
+  if (!val) return '-';
+  // Handle ISO string like 2026-06-01T07:00:00.000Z
+  const s = String(val);
+  if (s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'});
+  }
+  // Handle dd/mm/yyyy or yyyy-mm-dd already clean
+  return val;
+}
+
 function fmtDate(val) {
   if (!val) return '-';
   const d = new Date(val);
@@ -549,20 +561,20 @@ function renderDocketList(dockets) {
   const list = Object.values(unique).reverse();
   container.innerHTML = '<div class="docket-list">' + list.map(d => {
     const thumbs = d.pictures.slice(0, 3).map(pic =>
-      `<img src="https://drive.google.com/thumbnail?id=${pic}&sz=w80" 
-            style="width:44px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #ddd" 
+      `<img src="https://drive.google.com/thumbnail?id=${pic}&sz=w120" 
+            style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd;flex-shrink:0" 
             onerror="this.style.display='none'" alt="">`
     ).join('');
     const thumbsHtml = thumbs
-      ? `<div style="display:flex;gap:4px;align-items:center">${thumbs}</div>`
-      : `<div style="width:44px;height:44px;border-radius:5px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:18px;color:#ccc">📷</div>`;
+      ? `<div style="display:flex;gap:6px;align-items:center">${thumbs}</div>`
+      : `<div style="width:64px;height:64px;border-radius:6px;border:1.5px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:24px;color:#ccc;flex-shrink:0">📷</div>`;
     return `
     <div class="docket-item" onclick="viewDocket('${d.docNo}')">
       <div style="display:flex;align-items:center;gap:12px;flex:1">
         ${thumbsHtml}
         <div>
           <div style="font-weight:600;font-size:14px">${d.docNo}</div>
-          <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${fmtDate(d.requestDate)}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${fmtDateClean(d.requestDate)}</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${badgeHtml(d.status)} ›</div>
@@ -605,7 +617,7 @@ async function viewDocket(docNo) {
           ${badgeHtml(d.status)}
         </div>
         <div class="grid2">
-          <div><div style="font-size:11px;color:#888">Request date</div><div style="font-size:13px;font-weight:500;margin-top:2px">${d.requestDate || '-'}</div></div>
+          <div><div style="font-size:11px;color:#888">Request date</div><div style="font-size:13px;font-weight:500;margin-top:2px">${fmtDateClean(d.requestDate)}</div></div>
           <div><div style="font-size:11px;color:#888">Send to</div><div style="font-size:13px;font-weight:500;margin-top:2px">${d.sendTo || '-'}</div></div>
         </div>
       </div>
