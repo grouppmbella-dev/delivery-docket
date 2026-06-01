@@ -60,8 +60,21 @@ function createDocket(data) {
   const docNo = getNextDocNo();
   const items = data.items;
   let rowNo = getNextRowNo();
-  // Ensure we start appending from row 3 onwards
+
   items.forEach((item, index) => {
+    // Upload image inside Apps Script if imageData provided
+    let fileId = item.fileId || '';
+    if (!fileId && item.imageData && item.fileName) {
+      try {
+        const uploadResult = uploadImage({
+          imageData: item.imageData,
+          mimeType: item.mimeType || 'image/jpeg',
+          fileName: item.fileName
+        });
+        if (uploadResult.success) fileId = uploadResult.fileId;
+      } catch(e) { Logger.log('Image upload failed: ' + e.message); }
+    }
+
     sheet.appendRow([
       rowNo++,
       docNo,
@@ -73,7 +86,7 @@ function createDocket(data) {
       item.description,
       item.qty,
       item.unit,
-      item.fileId || '',      // Store File ID for picture
+      fileId,               // Store File ID for picture
       item.remark || '',
       data.nameIssueBy,
       data.issueDate,
@@ -197,6 +210,19 @@ function updateDocket(data) {
 
   items.forEach((item, index) => {
     sheet.insertRowBefore(insertAt + index);
+    // Upload new image if provided
+    let fileId = item.fileId || item.picture || '';
+    if (!fileId && item.imageData && item.fileName) {
+      try {
+        const uploadResult = uploadImage({
+          imageData: item.imageData,
+          mimeType: item.mimeType || 'image/jpeg',
+          fileName: item.fileName
+        });
+        if (uploadResult.success) fileId = uploadResult.fileId;
+      } catch(e) {}
+    }
+
     sheet.getRange(insertAt + index, 1, 1, 30).setValues([[
       existingFirst[0],          // Doc.no-no (keep original)
       data.docNo,                // Doc.no (keep)
@@ -208,7 +234,7 @@ function updateDocket(data) {
       item.description,
       item.qty,
       item.unit,
-      item.fileId || item.picture || '',
+      fileId,
       item.remark || '',
       data.nameIssueBy,
       data.issueDate,
