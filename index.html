@@ -479,29 +479,16 @@ async function saveDocket() {
   const { items, valid } = getFormItems();
   if (!valid) { showMsg('msg-new', 'Please fill in description for all items.', 'error'); return; }
 
-  // Upload images first
-  showMsg('msg-new', 'Uploading images...', 'success');
-  for (let item of items) {
-    if (item.imageData) {
-      try {
-        const res = await fetch(API, { method: 'POST', body: JSON.stringify({
-          action: 'uploadImage',
-          imageData: item.imageData,
-          mimeType: item.mimeType,
-          fileName: item.fileName
-        })});
-        const data = await res.json();
-        if (data.success) item.fileId = data.fileId;
-      } catch(e) { console.error('Image upload failed', e); }
-    }
-  }
-
   showMsg('msg-new', 'Saving docket...', 'success');
+  // Send imageData directly — Apps Script handles upload internally
   const payload = { action: 'createDocket', ...getFormHeader(), items };
   try {
     const res = await fetch(API, { method: 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
-    if (data.success) { showMsg('msg-new', '✓ Docket ' + data.docNo + ' saved successfully!', 'success'); clearForm(); }
+    if (data.success) {
+      showMsg('msg-new', '✓ Docket ' + data.docNo + ' saved successfully!', 'success');
+      clearForm();
+    }
     else showMsg('msg-new', 'Error: ' + (data.error || 'Unknown error'), 'error');
   } catch (e) { showMsg('msg-new', 'Connection error. Please try again.', 'error'); }
 }
@@ -511,13 +498,16 @@ function clearForm() {
    'f-checkby','f-checkdate','f-deliveryby','f-carplate','f-deliverydate',
    'f-receivedby','f-receiveddate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('items-body').innerHTML = '';
-  itemCount = 0; uploadedFiles = {};
+  itemCount = 0;
+  uploadedFiles = {};
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('f-reqdate').value = today;
   document.getElementById('f-issuedate').value = today;
   document.getElementById('f-checkdate').value = today;
   document.getElementById('f-deliverydate').value = today;
   document.getElementById('f-receiveddate').value = today;
+  // Add one empty item row ready for next docket
+  addItem();
 }
 
 function badgeHtml(status) {
