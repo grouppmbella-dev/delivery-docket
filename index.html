@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATMI GROUP — Delivery Docket</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1a}
+.app{max-width:960px;margin:0 auto;padding:1rem}
+.topbar{display:flex;align-items:center;gap:12px;background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:16px;border:1px solid #e0e0e0}
+.logo-circle{width:40px;height:40px;border-radius:50%;background:#1a5fa8;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:600}
+.topbar-sub{font-size:12px;color:#666}
+.nav{display:flex;gap:8px;margin-bottom:16px}
+.nav button{background:#fff;border:1px solid #ddd;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;color:#444}
+.nav button.active{background:#1a5fa8;color:#fff;border-color:#1a5fa8;font-weight:500}
+.page{display:none}.page.active{display:block}
+.card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:16px;margin-bottom:14px}
+.section-title{font-size:11px;font-weight:600;color:#888;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:#555;font-weight:500}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;background:#fff;color:#1a1a1a}
+.field input:focus,.field select:focus{outline:none;border-color:#1a5fa8}
+.items-table{width:100%;border-collapse:collapse;font-size:13px}
+.items-table th{text-align:left;padding:8px;background:#f0f4f8;font-weight:600;font-size:11px;color:#555;border-bottom:1px solid #ddd}
+.items-table td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+.items-table input{width:100%;border:1px solid #ddd;border-radius:4px;padding:4px 6px;font-size:12px}
+.btn{padding:8px 16px;border-radius:7px;border:1px solid #ccc;background:#fff;color:#333;cursor:pointer;font-size:13px;font-weight:500}
+.btn:hover{background:#f5f5f5}
+.btn-primary{background:#1a5fa8;color:#fff;border-color:#1a5fa8}
+.btn-primary:hover{background:#154d8c}
+.btn-print{background:#fff;color:#333;border-color:#ccc}
+.btn-danger{color:#c0392b;border-color:#c0392b}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-success{background:#27ae60;color:#fff;border-color:#27ae60}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1rem}
+.badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600}
+.badge-draft{background:#f0f0f0;color:#666}
+.badge-issued{background:#dbeafe;color:#1e40af}
+.badge-delivered{background:#fef3c7;color:#92400e}
+.badge-completed{background:#d1fae5;color:#065f46}
+.docket-list{display:flex;flex-direction:column;gap:8px}
+.docket-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;transition:background 0.15s}
+.docket-item:hover{background:#f0f4f8}
+.signed-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee}
+.signed-row:last-child{border-bottom:none}
+.img-thumb{width:52px;height:52px;object-fit:cover;border-radius:5px;border:1px solid #ddd}
+.msg{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:12px;display:none}
+.msg.show{display:block}
+.msg-success{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
+.msg-error{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.loading{text-align:center;padding:2rem;color:#888;font-size:13px}
+.search-bar{display:flex;gap:8px;margin-bottom:12px}
+.search-bar input{flex:1;padding:8px 12px;border:1px solid #ccc;border-radius:7px;font-size:13px}
+.filter-select{padding:8px 10px;border:1px solid #ccc;border-radius:7px;font-size:13px}
+
+/* PRINT STYLES */
+@media print {
+  body{background:#fff}
+  .app,.nav,.topbar,.no-print{display:none!important}
+  .print-area{display:block!important}
+  @page{size:A4 portrait;margin:12mm 10mm 18mm 10mm}
+}
+.print-area{display:none}
+
+.print-doc{font-family:Arial,sans-serif;font-size:10.5px;color:#000;width:100%;page-break-after:always}
+.print-doc:last-child{page-break-after:avoid}
+.ph{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a5fa8;padding-bottom:8px;margin-bottom:10px}
+.ph-left{display:flex;align-items:center;gap:10px}
+.ph-logo{width:42px;height:42px;border-radius:50%;background:#1a5fa8;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0}
+.ph-company{font-size:12px;font-weight:700;color:#1a5fa8}
+.ph-doctitle{font-size:17px;font-weight:700;letter-spacing:0.5px;color:#000}
+.ph-sub{font-size:10px;color:#555;margin-top:2px}
+.ph-meta{border:1.5px solid #1a5fa8;border-radius:5px;padding:6px 10px;min-width:170px;font-size:10px}
+.ph-meta-row{display:flex;justify-content:space-between;gap:10px;padding:1.5px 0}
+.ph-meta-row span{color:#555}
+.ph-meta-row strong{font-weight:700;color:#000}
+
+.pt{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px}
+.pt thead tr{background:#1a5fa8}
+.pt th{color:#fff;padding:5px 6px;text-align:left;font-weight:600;font-size:10px}
+.pt td{padding:5px 6px;border-bottom:0.5px solid #ddd;vertical-align:top}
+.pt tr:nth-child(even) td{background:#f7f9fc}
+
+.sign-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border:1.5px solid #aaa;border-radius:4px;overflow:hidden;margin-bottom:8px}
+.sign-col{padding:8px;border-right:1px solid #aaa}
+.sign-col:last-child{border-right:none}
+.sign-col-label{font-size:9px;font-weight:700;color:#1a5fa8;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:3px}
+.sign-col-name{font-weight:600;font-size:10px;min-height:13px}
+.sign-col-date{font-size:9px;color:#555;margin-top:1px;min-height:11px}
+.sign-space{border-bottom:1px solid #999;height:38px;margin:8px 4px 4px;position:relative}
+.sign-space-lbl{position:absolute;bottom:-10px;left:0;font-size:8px;color:#aaa;font-style:italic}
+
+.pf{display:flex;justify-content:space-between;font-size:8.5px;color:#888;padding-top:4px;border-top:0.5px solid #ccc;margin-top:6px}
+.pf-center{text-align:center;flex:2}
+.pf-right{text-align:right;flex:1}
+.pf-left{flex:1}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="logo-circle">ATMI</div>
+    <div>
+      <div class="topbar-title">ATMI GROUP</div>
+      <div class="topbar-sub">Delivery Docket System</div>
+    </div>
+  </div>
+
+  <div class="nav no-print">
+    <button class="active" onclick="showPage('new')">＋ New Docket</button>
+    <button onclick="showPage('list')">☰ All Dockets</button>
+  </div>
+
+  <!-- NEW DOCKET -->
+  <div id="page-new" class="page active">
+    <div id="msg-new" class="msg"></div>
+    <div class="card">
+      <div class="section-title">Docket information</div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="field"><label>Request date</label><input type="date" id="f-reqdate"></div>
+        <div class="field"><label>Project</label><input type="text" id="f-project" placeholder="Project name"></div>
+        <div class="field"><label>Job number</label><input type="text" id="f-jobno" placeholder="e.g. ATMI-26-0001"></div>
+      </div>
+      <div class="field"><label>Send to</label><input type="text" id="f-sendto" placeholder="Recipient name / company"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">Items</div>
+        <button class="btn btn-sm" onclick="addItem()">＋ Add item</button>
+      </div>
+      <table class="items-table">
+        <thead><tr>
+          <th style="width:36px">No.</th>
+          <th>Description</th>
+          <th style="width:65px">Qty</th>
+          <th style="width:75px">Unit</th>
+          <th style="width:110px">Picture</th>
+          <th>Remark</th>
+          <th style="width:32px"></th>
+        </tr></thead>
+        <tbody id="items-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Responsible persons</div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="field"><label>Issue by</label><input type="text" id="f-issueby" placeholder="Name"></div>
+        <div class="field"><label>Issue date</label><input type="date" id="f-issuedate"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="field"><label>Check by</label><input type="text" id="f-checkby" placeholder="Name"></div>
+        <div class="field"><label>Check date</label><input type="date" id="f-checkdate"></div>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="field"><label>Delivery by</label><input type="text" id="f-deliveryby" placeholder="Name"></div>
+        <div class="field"><label>Car number plate</label><input type="text" id="f-carplate" placeholder="e.g. กข 1234"></div>
+        <div class="field"><label>Delivery date</label><input type="date" id="f-deliverydate"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Received by</label><input type="text" id="f-receivedby" placeholder="Name"></div>
+        <div class="field"><label>Received date</label><input type="date" id="f-receiveddate"></div>
+      </div>
+    </div>
+
+    <div class="actions no-print">
+      <button class="btn btn-danger btn-sm" onclick="clearForm()">✕ Clear</button>
+      <button class="btn btn-print btn-sm" onclick="previewAndPrint()">⎙ Print preview</button>
+      <button class="btn btn-primary" onclick="saveDocket()">💾 Save docket</button>
+    </div>
+  </div>
+
+  <!-- ALL DOCKETS -->
+  <div id="page-list" class="page">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">All dockets</div>
+        <button class="btn btn-sm" onclick="loadDockets()">↺ Refresh</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Search by docket no. or project..." oninput="filterDockets()">
+        <select class="filter-select" id="status-filter" onchange="filterDockets()">
+          <option value="">All status</option>
+          <option value="Draft">Draft</option>
+          <option value="Issued">Issued</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+      <div id="docket-list-container"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- DETAIL -->
+  <div id="page-detail" class="page">
+    <div class="no-print" style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+      <button class="btn btn-sm" onclick="showPage('list')">← Back</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-print btn-sm" onclick="printCurrentDetail()">⎙ Print</button>
+    </div>
+    <div id="msg-detail" class="msg"></div>
+    <div id="detail-container"></div>
+  </div>
+</div>
+
+<!-- PRINT AREA -->
+<div class="print-area" id="print-area"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzxuY24DIg6lV_GK4WtEfpbToBOP97csNcmdXT2u5dZirOrVYZ3B1QmblYRQ_DcHmB8/exec';
+let itemCount = 0;
+let uploadedFiles = {};
+let allDocketsCache = [];
+let currentDocketItems = null;
+
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  if (p === 'list') { loadDockets(); document.querySelectorAll('.nav button')[1].classList.add('active'); }
+  else if (p === 'new') document.querySelectorAll('.nav button')[0].classList.add('active');
+}
+
+function addItem() {
+  itemCount++;
+  const tbody = document.getElementById('items-body');
+  const tr = document.createElement('tr');
+  tr.id = 'item-row-' + itemCount;
+  tr.innerHTML = `
+    <td style="text-align:center;color:#888">${itemCount}</td>
+    <td><input type="text" placeholder="Description" id="desc-${itemCount}"></td>
+    <td><input type="number" placeholder="0" id="qty-${itemCount}" min="0"></td>
+    <td><input type="text" placeholder="pcs/set/m" id="unit-${itemCount}"></td>
+    <td>
+      <input type="file" accept="image/*" id="file-${itemCount}" style="display:none" onchange="handleFile(${itemCount},this)">
+      <button class="btn btn-sm" onclick="document.getElementById('file-${itemCount}').click()">📷</button>
+      <div id="fname-${itemCount}" style="font-size:10px;color:#888;margin-top:2px"></div>
+    </td>
+    <td><input type="text" placeholder="Remark" id="remark-${itemCount}"></td>
+    <td><button class="btn btn-sm" onclick="removeItem(${itemCount})" style="color:#c0392b">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function removeItem(n) {
+  const row = document.getElementById('item-row-' + n);
+  if (row) row.remove();
+  delete uploadedFiles[n];
+}
+
+function handleFile(n, input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('fname-' + n).textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    uploadedFiles[n] = { base64: e.target.result.split(',')[1], mimeType: file.type, fileName: file.name };
+  };
+  reader.readAsDataURL(file);
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg show msg-' + type;
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function fmtDateTime() {
+  const n = new Date();
+  return n.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + '  ' +
+    n.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getFormItems() {
+  const rows = document.querySelectorAll('#items-body tr');
+  const items = [];
+  let valid = true;
+  rows.forEach(row => {
+    const n = row.id.replace('item-row-', '');
+    const desc = document.getElementById('desc-' + n)?.value || '';
+    if (!desc) { valid = false; return; }
+    items.push({
+      itemNo: items.length + 1,
+      description: desc,
+      qty: document.getElementById('qty-' + n)?.value || '',
+      unit: document.getElementById('unit-' + n)?.value || '',
+      picture: uploadedFiles[n]?.fileName || '',
+      remark: document.getElementById('remark-' + n)?.value || '',
+      imageData: uploadedFiles[n]?.base64 || null,
+      mimeType: uploadedFiles[n]?.mimeType || null,
+      fileName: uploadedFiles[n]?.fileName || null,
+    });
+  });
+  return { items, valid };
+}
+
+function getFormHeader() {
+  return {
+    requestDate: document.getElementById('f-reqdate').value,
+    project: document.getElementById('f-project').value,
+    jobNumber: document.getElementById('f-jobno').value,
+    sendTo: document.getElementById('f-sendto').value,
+    nameIssueBy: document.getElementById('f-issueby').value,
+    issueDate: document.getElementById('f-issuedate').value,
+    nameCheckBy: document.getElementById('f-checkby').value,
+    checkDate: document.getElementById('f-checkdate').value,
+    nameDeliveryBy: document.getElementById('f-deliveryby').value,
+    deliveryDate: document.getElementById('f-deliverydate').value,
+    carNumberPlate: document.getElementById('f-carplate').value,
+    nameReceivedBy: document.getElementById('f-receivedby').value,
+    receivedDate: document.getElementById('f-receiveddate').value,
+  };
+}
+
+// ---- PRINT ----
+const ITEMS_PER_PAGE = 14;
+
+function buildPrintPage(items, header, totalPages, pageNum) {
+  const d = { ...header, ...items[0] };
+  const now = fmtDateTime();
+  const rows = items.map(item => `
+    <tr>
+      <td style="text-align:center">${item.itemNo}</td>
+      <td>${item.description || '-'}</td>
+      <td style="text-align:center">${item.qty || '-'}</td>
+      <td style="text-align:center">${item.unit || '-'}</td>
+      <td style="text-align:center">${item.picture
+        ? `<img src="https://drive.google.com/thumbnail?id=${item.picture}&sz=w60" style="width:46px;height:46px;object-fit:cover;border-radius:3px" alt="">`
+        : '—'}</td>
+      <td>${item.remark || '—'}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="print-doc">
+    <div class="ph">
+      <div class="ph-left">
+        <div class="ph-logo">ATMI</div>
+        <div>
+          <div class="ph-company">ATMI GROUP</div>
+          <div class="ph-doctitle">MEMO SHEET DELIVERY DOCKET</div>
+          <div class="ph-sub">${d.project || ''} ${d.jobNumber ? '· ' + d.jobNumber : ''}</div>
+        </div>
+      </div>
+      <div class="ph-meta">
+        <div class="ph-meta-row"><span>Docket No.</span><strong>${d.docNo || 'DRAFT'}</strong></div>
+        <div class="ph-meta-row"><span>Request date</span><strong>${d.requestDate || '-'}</strong></div>
+        <div class="ph-meta-row"><span>Send to</span><strong>${d.sendTo || '-'}</strong></div>
+      </div>
+    </div>
+
+    <table class="pt">
+      <thead><tr>
+        <th style="width:28px">No.</th>
+        <th>Description</th>
+        <th style="width:38px">Qty</th>
+        <th style="width:46px">Unit</th>
+        <th style="width:58px">Picture</th>
+        <th>Remark</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="sign-grid">
+      <div class="sign-col">
+        <div class="sign-col-label">Issue by</div>
+        <div class="sign-col-name">${d.nameIssueBy || ''}</div>
+        <div class="sign-col-date">${d.issueDate || ''}</div>
+        <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
+      </div>
+      <div class="sign-col">
+        <div class="sign-col-label">Check by</div>
+        <div class="sign-col-name">${d.nameCheckBy || ''}</div>
+        <div class="sign-col-date">${d.checkDate || ''}</div>
+        <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
+      </div>
+      <div class="sign-col">
+        <div class="sign-col-label">Delivery by</div>
+        <div class="sign-col-name">${d.nameDeliveryBy || ''}</div>
+        <div class="sign-col-date">${d.deliveryDate || ''}${d.carNumberPlate ? ' · ' + d.carNumberPlate : ''}</div>
+        <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
+      </div>
+      <div class="sign-col">
+        <div class="sign-col-label">Received by</div>
+        <div class="sign-col-name">${d.nameReceivedBy || ''}</div>
+        <div class="sign-col-date">${d.receivedDate || ''}</div>
+        <div class="sign-space"><span class="sign-space-lbl">Signature</span></div>
+      </div>
+    </div>
+
+    <div class="pf">
+      <div class="pf-left"></div>
+      <div class="pf-center">Printed: ${now}</div>
+      <div class="pf-right">Page ${pageNum} of ${totalPages}</div>
+    </div>
+  </div>`;
+}
+
+function doPrint(allItems, header) {
+  const pages = [];
+  for (let i = 0; i < allItems.length; i += ITEMS_PER_PAGE) {
+    pages.push(allItems.slice(i, i + ITEMS_PER_PAGE));
+  }
+  const total = Math.max(pages.length, 1);
+  const html = pages.map((pg, idx) => buildPrintPage(pg, header, total, idx + 1)).join('');
+  document.getElementById('print-area').innerHTML = html;
+  window.print();
+}
+
+function previewAndPrint() {
+  const rows = document.querySelectorAll('#items-body tr');
+  if (rows.length === 0) { showMsg('msg-new', 'Please add at least one item.', 'error'); return; }
+  const { items, valid } = getFormItems();
+  if (!valid) { showMsg('msg-new', 'Please fill in description for all items.', 'error'); return; }
+  const header = { ...getFormHeader(), docNo: 'DRAFT' };
+  doPrint(items, header);
+}
+
+function printCurrentDetail() {
+  if (!currentDocketItems || !currentDocketItems.length) return;
+  const header = currentDocketItems[0];
+  doPrint(currentDocketItems, header);
+}
+
+// ---- SAVE ----
+async function saveDocket() {
+  const rows = document.querySelectorAll('#items-body tr');
+  if (rows.length === 0) { showMsg('msg-new', 'Please add at least one item.', 'error'); return; }
+  const { items, valid } = getFormItems();
+  if (!valid) { showMsg('msg-new', 'Please fill in description for all items.', 'error'); return; }
+  const payload = { action: 'createDocket', ...getFormHeader(), items };
+  showMsg('msg-new', 'Saving docket...', 'success');
+  try {
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) { showMsg('msg-new', '✓ Docket ' + data.docNo + ' saved successfully!', 'success'); clearForm(); }
+    else showMsg('msg-new', 'Error: ' + (data.error || 'Unknown error'), 'error');
+  } catch (e) { showMsg('msg-new', 'Connection error. Please try again.', 'error'); }
+}
+
+function clearForm() {
+  ['f-reqdate','f-project','f-jobno','f-sendto','f-issueby','f-issuedate',
+   'f-checkby','f-checkdate','f-deliveryby','f-carplate','f-deliverydate',
+   'f-receivedby','f-receiveddate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('items-body').innerHTML = '';
+  itemCount = 0; uploadedFiles = {};
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('f-reqdate').value = today;
+  document.getElementById('f-issuedate').value = today;
+}
+
+function badgeHtml(status) {
+  const map = { Draft: 'draft', Issued: 'issued', Delivered: 'delivered', Completed: 'completed' };
+  return `<span class="badge badge-${map[status] || 'draft'}">${status || 'Draft'}</span>`;
+}
+
+// ---- LIST ----
+async function loadDockets() {
+  const container = document.getElementById('docket-list-container');
+  container.innerHTML = '<div class="loading">Loading dockets...</div>';
+  try {
+    const res = await fetch(API + '?action=getDockets');
+    const data = await res.json();
+    if (!data.success) { container.innerHTML = '<div class="loading">Failed to load.</div>'; return; }
+    allDocketsCache = data.data || [];
+    renderDocketList(allDocketsCache);
+  } catch (e) { container.innerHTML = '<div class="loading">Connection error.</div>'; }
+}
+
+function renderDocketList(dockets) {
+  const container = document.getElementById('docket-list-container');
+  if (dockets.length === 0) { container.innerHTML = '<div class="loading">No dockets found.</div>'; return; }
+  const unique = {};
+  dockets.forEach(r => { if (!unique[r.docNo]) unique[r.docNo] = { ...r, itemCount: 0 }; unique[r.docNo].itemCount++; });
+  const list = Object.values(unique).reverse();
+  container.innerHTML = '<div class="docket-list">' + list.map(d => `
+    <div class="docket-item" onclick="viewDocket('${d.docNo}')">
+      <div>
+        <div style="font-weight:600;font-size:14px">${d.docNo}</div>
+        <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${d.requestDate || '-'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">${badgeHtml(d.status)} ›</div>
+    </div>`).join('') + '</div>';
+}
+
+function filterDockets() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const s = document.getElementById('status-filter').value;
+  const filtered = allDocketsCache.filter(r => {
+    const matchQ = !q || (r.docNo || '').toLowerCase().includes(q) || (r.project || '').toLowerCase().includes(q);
+    const matchS = !s || r.status === s;
+    return matchQ && matchS;
+  });
+  renderDocketList(filtered);
+}
+
+// ---- DETAIL ----
+async function viewDocket(docNo) {
+  showPage('detail');
+  currentDocketItems = null;
+  const container = document.getElementById('detail-container');
+  container.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const res = await fetch(API + '?action=getDocketById&docNo=' + encodeURIComponent(docNo));
+    const data = await res.json();
+    if (!data.success || !data.data.length) { container.innerHTML = '<div class="loading">Not found.</div>'; return; }
+    currentDocketItems = data.data;
+    const items = data.data;
+    const d = items[0];
+
+    container.innerHTML = `
+      <div class="card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div style="font-size:18px;font-weight:700">${docNo}</div>
+            <div style="font-size:13px;color:#666;margin-top:2px">${d.project || '-'} · ${d.jobNumber || '-'}</div>
+          </div>
+          ${badgeHtml(d.status)}
+        </div>
+        <div class="grid2">
+          <div><div style="font-size:11px;color:#888">Request date</div><div style="font-size:13px;font-weight:500;margin-top:2px">${d.requestDate || '-'}</div></div>
+          <div><div style="font-size:11px;color:#888">Send to</div><div style="font-size:13px;font-weight:500;margin-top:2px">${d.sendTo || '-'}</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Items</div>
+        <table class="items-table">
+          <thead><tr><th>No.</th><th>Description</th><th>Qty</th><th>Unit</th><th>Picture</th><th>Remark</th></tr></thead>
+          <tbody>${items.map(item => `<tr>
+            <td>${item.itemNo}</td>
+            <td>${item.description || '-'}</td>
+            <td>${item.qty || '-'}</td>
+            <td>${item.unit || '-'}</td>
+            <td>${item.picture
+              ? `<img class="img-thumb" src="https://drive.google.com/thumbnail?id=${item.picture}&sz=w100" onerror="this.style.display='none'" alt="">`
+              : '<span style="color:#aaa">-</span>'}</td>
+            <td>${item.remark || '-'}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Signatures</div>
+        <div id="sign-rows-detail"></div>
+      </div>`;
+
+    const signRows = document.getElementById('sign-rows-detail');
+    const types = ['issue', 'check', 'delivery', 'received'];
+    const labels = ['Issue by', 'Check by', 'Delivery by', 'Received by'];
+    const nameKeys = ['nameIssueBy', 'nameCheckBy', 'nameDeliveryBy', 'nameReceivedBy'];
+    const signedVals = [d.issueSigned, d.checkSigned, d.deliverySigned, d.receivedSigned];
+    const dateVals = [d.issueSignedDate, d.checkSignedDate, d.deliverySignedDate, d.receivedSignedDate];
+
+    types.forEach((type, i) => {
+      const row = document.createElement('div');
+      row.className = 'signed-row';
+      row.innerHTML = `
+        <div>
+          <div style="font-size:13px;font-weight:600">${labels[i]}</div>
+          <div style="font-size:12px;color:#666">${d[nameKeys[i]] || '-'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${signedVals[i] === 'Signed'
+            ? `<span class="badge badge-completed">✓ Signed ${dateVals[i] || ''}</span>`
+            : `<button class="btn btn-sm btn-success no-print" onclick="markSigned('${docNo}','${type}')">Mark signed</button><span style="font-size:12px;color:#aaa">⏳ Pending</span>`}
+        </div>`;
+      signRows.appendChild(row);
+    });
+
+  } catch (e) { container.innerHTML = '<div class="loading">Connection error.</div>'; }
+}
+
+async function markSigned(docNo, type) {
+  showMsg('msg-detail', 'Updating...', 'success');
+  try {
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'updateSigned', docNo, type }) });
+    const data = await res.json();
+    if (data.success) { showMsg('msg-detail', '✓ Updated successfully!', 'success'); viewDocket(docNo); }
+    else showMsg('msg-detail', 'Error updating.', 'error');
+  } catch (e) { showMsg('msg-detail', 'Connection error.', 'error'); }
+}
+
+// Init
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('f-reqdate').value = today;
+document.getElementById('f-issuedate').value = today;
+addItem();
+</script>
+</body>
+</html>
