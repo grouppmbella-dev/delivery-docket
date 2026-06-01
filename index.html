@@ -59,14 +59,15 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
 
 /* PRINT STYLES */
 @media print {
-  body{background:#fff}
+  body{background:#fff;margin:0!important;padding:0!important}
   .app,.nav,.topbar,.no-print{display:none!important}
   .print-area{display:block!important}
-  @page{size:A4 portrait;margin:30mm !important}
+  @page{size:A4 portrait;margin:0}
+  .print-doc{padding:30mm!important}
 }
 .print-area{display:none}
 
-.print-doc{font-family:Arial,sans-serif;font-size:10.5px;color:#000;width:100%;page-break-after:always}
+.print-doc{font-family:Arial,sans-serif;font-size:10.5px;color:#000;width:100%;page-break-after:always;box-sizing:border-box}
 .print-doc:last-child{page-break-after:avoid}
 .ph{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a5fa8;padding-bottom:8px;margin-bottom:10px}
 .ph-left{display:flex;align-items:center;gap:10px}
