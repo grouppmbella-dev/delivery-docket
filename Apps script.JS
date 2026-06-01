@@ -8,6 +8,7 @@ function doPost(e) {
     if (action === 'createDocket') return response(createDocket(data));
     if (action === 'updateSigned') return response(updateSigned(data));
     if (action === 'updateDocket') return response(updateDocket(data));
+    if (action === 'deleteItem') return response(deleteItem(data));
     if (action === 'uploadImage') return response(uploadImage(data));
   } catch(err) {
     return response({ success: false, error: err.message });
@@ -131,6 +132,43 @@ function getDocketById(docNo) {
       return obj;
     });
   return { success: true, data: items };
+}
+
+function deleteItem(data) {
+  const sheet = getSheet();
+  const lastRow = sheet.getLastRow();
+  const allData = sheet.getRange(2, 1, lastRow - 1, 30).getValues();
+
+  // Only allow delete on Draft dockets
+  const docketRows = allData.map((row, i) => ({ row, i })).filter(r => r.row[1] === data.docNo);
+  if (docketRows.length === 0) return { success: false, error: 'Docket not found' };
+  if (docketRows[0].row[29] !== 'Draft') return { success: false, error: 'Only Draft dockets can be deleted' };
+
+  // Find the specific item row to delete
+  const targetRow = allData.findIndex((row, i) => 
+    row[1] === data.docNo && String(row[6]) === String(data.itemNo)
+  );
+  if (targetRow === -1) return { success: false, error: 'Item not found' };
+
+  // Delete the row
+  sheet.deleteRow(targetRow + 2);
+
+  // Check if docket has remaining items
+  const remaining = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues()
+    .filter(r => r[1] === data.docNo);
+
+  // Renumber remaining items
+  if (remaining.length > 0) {
+    const newData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 30).getValues();
+    let itemNum = 1;
+    newData.forEach((row, i) => {
+      if (row[1] === data.docNo) {
+        sheet.getRange(i + 2, 7).setValue(itemNum++);
+      }
+    });
+  }
+
+  return { success: true, remainingItems: remaining.length };
 }
 
 function updateDocket(data) {
