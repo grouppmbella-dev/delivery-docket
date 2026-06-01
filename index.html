@@ -62,8 +62,8 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
   body{background:#fff;margin:0!important;padding:0!important}
   .app,.nav,.topbar,.no-print{display:none!important}
   .print-area{display:block!important}
-  @page{size:A4 portrait;margin:0}
-  .print-doc{padding:5mm!important}
+  @page{size:A4 portrait}
+  
 }
 .print-area{display:none}
 
@@ -680,7 +680,7 @@ async function viewDocket(docNo) {
       <div class="card">
         <div class="section-title">Items</div>
         <table class="items-table">
-          <thead><tr><th>No.</th><th>Description</th><th>Qty</th><th>Unit</th><th>Picture</th><th>Remark</th></tr></thead>
+          <thead><tr><th>No.</th><th>Description</th><th>Qty</th><th>Unit</th><th>Picture</th><th>Remark</th><th class="no-print" style="width:32px"></th></tr></thead>
           <tbody>${items.map(item => `<tr>
             <td>${item.itemNo}</td>
             <td>${item.description || '-'}</td>
@@ -690,6 +690,9 @@ async function viewDocket(docNo) {
               ? `<img class="img-thumb" src="https://drive.google.com/thumbnail?id=${item.picture}&sz=w100" onerror="this.style.display='none'" alt="">`
               : '<span style="color:#aaa">-</span>'}</td>
             <td>${item.remark || '-'}</td>
+            <td>${d.status === 'Draft'
+              ? `<button class="btn btn-sm no-print" onclick="deleteItem('${d.docNo}',${item.itemNo})" style="color:#c0392b;border-color:#c0392b">🗑</button>`
+              : ''}</td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -951,6 +954,28 @@ async function saveEdit() {
       viewDocket(currentDocNo);
     } else {
       showMsg('msg-detail', 'Error: ' + (data.error || 'Unknown'), 'error');
+    }
+  } catch(e) { showMsg('msg-detail', 'Connection error.', 'error'); }
+}
+
+async function deleteItem(docNo, itemNo) {
+  if (!confirm('Delete item ' + itemNo + ' from ' + docNo + '?')) return;
+  showMsg('msg-detail', 'Deleting...', 'success');
+  try {
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify({
+      action: 'deleteItem', docNo, itemNo
+    })});
+    const data = await res.json();
+    if (data.success) {
+      if (data.remainingItems === 0) {
+        showMsg('msg-detail', 'All items deleted. Returning to list...', 'success');
+        setTimeout(() => showPage('list'), 1500);
+      } else {
+        showMsg('msg-detail', '✓ Item deleted.', 'success');
+        viewDocket(docNo);
+      }
+    } else {
+      showMsg('msg-detail', 'Error: ' + (data.error || 'Cannot delete'), 'error');
     }
   } catch(e) { showMsg('msg-detail', 'Connection error.', 'error'); }
 }
