@@ -57,6 +57,20 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
 .search-bar input{flex:1;padding:8px 12px;border:1px solid #ccc;border-radius:7px;font-size:13px}
 .filter-select{padding:8px 10px;border:1px solid #ccc;border-radius:7px;font-size:13px}
 
+/* LOGIN */
+.login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#f4f5f7;display:flex;align-items:center;justify-content:center;z-index:9999}
+.login-box{background:#fff;border-radius:12px;padding:2rem;width:340px;box-shadow:0 4px 24px rgba(0,0,0,0.10);border:1px solid #e0e0e0}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;justify-content:center}
+.login-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.login-sub{font-size:12px;color:#888}
+.login-field{margin-bottom:14px}
+.login-field label{font-size:12px;color:#555;font-weight:500;display:block;margin-bottom:4px}
+.login-field input{width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:7px;font-size:14px}
+.login-field input:focus{outline:none;border-color:#1a5fa8}
+.login-btn{width:100%;padding:10px;background:#1a5fa8;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.login-btn:hover{background:#154d8c}
+.login-error{color:#c0392b;font-size:12px;margin-top:8px;display:none}
+
 /* PRINT STYLES */
 @media print {
   body{background:#fff;margin:0!important;padding:0!important}
@@ -103,19 +117,50 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
 </head>
 <body>
 
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="https://lh3.googleusercontent.com/d/1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP" 
+           style="max-height:60px;max-width:200px;object-fit:contain" alt="ATMI GROUP"
+           onerror="this.style.display='none'">
+    </div>
+    <div style="text-align:center;margin-bottom:1.5rem">
+      <div class="login-title">Delivery Docket System</div>
+      <div class="login-sub">Please sign in to continue</div>
+    </div>
+    <div class="login-field">
+      <label>Your name</label>
+      <input type="text" id="login-name" placeholder="e.g. Bella" autocomplete="name">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign in</button>
+    <div class="login-error" id="login-error">Incorrect name or password. Please try again.</div>
+  </div>
+</div>
+
 <div class="app">
-  <div class="topbar" style="padding:8px 16px">
-    <img id="company-logo"
-         src="https://lh3.googleusercontent.com/d/1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP"
-         style="max-height:56px;max-width:260px;object-fit:contain"
-         onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'"
-         alt="ATMI GROUP">
-    <div id="logo-fallback" style="display:none;align-items:center;gap:12px">
-      <div class="logo-circle">ATMI</div>
-      <div>
-        <div class="topbar-title">ATMI GROUP</div>
-        <div class="topbar-sub">Delivery Docket System</div>
+  <div class="topbar" style="padding:8px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:12px">
+      <img id="company-logo"
+           src="https://lh3.googleusercontent.com/d/1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP"
+           style="max-height:56px;max-width:260px;object-fit:contain"
+           onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'"
+           alt="ATMI GROUP">
+      <div id="logo-fallback" style="display:none;align-items:center;gap:12px">
+        <div class="logo-circle">ATMI</div>
+        <div>
+          <div class="topbar-title">ATMI GROUP</div>
+          <div class="topbar-sub">Delivery Docket System</div>
+        </div>
       </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="topbar-user" style="font-size:13px;color:#555;font-weight:500"></span>
+      <button class="btn btn-sm" onclick="logout()" style="font-size:12px;color:#888">Sign out</button>
     </div>
   </div>
 
@@ -465,7 +510,7 @@ function buildPrintPage(items, header, totalPages, pageNum) {
 
     <div class="pf">
       <div class="pf-left"></div>
-      <div class="pf-center">Printed: ${now}</div>
+      <div class="pf-center">Printed: ${now} &nbsp;|&nbsp; By: ${currentUser || '-'}</div>
       <div class="pf-right">Page ${pageNum} of ${totalPages}</div>
     </div>
   </div>`;
@@ -559,6 +604,9 @@ function clearForm() {
   document.getElementById('f-receiveddate').value = today;
   // Add one empty item row ready for next docket
   addItem();
+  // Restore current user in Issue by
+  const issueEl = document.getElementById('f-issueby');
+  if (issueEl && currentUser) issueEl.value = currentUser;
 }
 
 function badgeHtml(status) {
@@ -1035,6 +1083,53 @@ async function markSigned(docNo, type) {
 const LOGO_URL = 'https://lh3.googleusercontent.com/d/1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP';
 let logoDataUrl = LOGO_URL;
 
+// ---- LOGIN ----
+const PASSWORD = 'PM9999';
+let currentUser = '';
+
+function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  const pass = document.getElementById('login-password').value.trim();
+  const errEl = document.getElementById('login-error');
+
+  if (!name) { errEl.textContent = 'Please enter your name.'; errEl.style.display = 'block'; return; }
+  if (pass !== PASSWORD) { errEl.textContent = 'Incorrect password. Please try again.'; errEl.style.display = 'block'; return; }
+
+  // Save to localStorage
+  localStorage.setItem('dd_user', name);
+  localStorage.setItem('dd_auth', '1');
+  currentUser = name;
+  document.getElementById('login-overlay').style.display = 'none';
+
+  // Set Issue by to current user
+  const issueByEl = document.getElementById('f-issueby');
+  if (issueByEl) issueByEl.value = currentUser;
+
+  // Show name in topbar
+  document.getElementById('topbar-user').textContent = '👤 ' + currentUser;
+}
+
+function checkLogin() {
+  const auth = localStorage.getItem('dd_auth');
+  const name = localStorage.getItem('dd_user');
+  if (auth === '1' && name) {
+    currentUser = name;
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('topbar-user').textContent = '👤 ' + currentUser;
+    const issueByEl = document.getElementById('f-issueby');
+    if (issueByEl) issueByEl.value = currentUser;
+  }
+}
+
+function logout() {
+  localStorage.removeItem('dd_auth');
+  localStorage.removeItem('dd_user');
+  currentUser = '';
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-password').value = '';
+}
+
 // Init
 const today = new Date().toISOString().split('T')[0];
 document.getElementById('f-reqdate').value = today;
@@ -1043,6 +1138,7 @@ document.getElementById('f-checkdate').value = today;
 document.getElementById('f-deliverydate').value = today;
 document.getElementById('f-receiveddate').value = today;
 addItem();
+checkLogin();
 </script>
 </body>
 </html>
