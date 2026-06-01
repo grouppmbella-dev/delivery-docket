@@ -104,10 +104,8 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
 
 <div class="app">
   <div class="topbar" style="padding:8px 16px">
-    <img src="https://drive.google.com/thumbnail?id=1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP&sz=w300" 
-         style="max-height:56px;max-width:260px;object-fit:contain" alt="ATMI GROUP"
-         onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'">
-    <div id="logo-fallback" style="display:none;align-items:center;gap:12px">
+    <img id="company-logo" style="max-height:56px;max-width:260px;object-fit:contain;display:none" alt="ATMI GROUP">
+    <div id="logo-fallback" style="display:flex;align-items:center;gap:12px">
       <div class="logo-circle">ATMI</div>
       <div>
         <div class="topbar-title">ATMI GROUP</div>
@@ -346,23 +344,52 @@ function buildPrintPage(items, header, totalPages, pageNum) {
 
   return `
   <div class="print-doc">
-    <div style="border-bottom:2px solid #1a5fa8;margin-bottom:10px;padding-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div style="flex:1">
-          <img src="https://drive.google.com/thumbnail?id=1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP&sz=w400" 
-               style="max-height:70px;max-width:320px;object-fit:contain;display:block" alt="ATMI GROUP">
-        </div>
-        <div style="text-align:right;min-width:180px">
-          <div style="font-size:15px;font-weight:700;color:#1a5fa8;letter-spacing:0.5px">MEMO SHEET DELIVERY DOCKET</div>
-          <div style="font-size:10px;color:#555;margin-top:4px">${d.project || ''} ${d.jobNumber ? '· ' + d.jobNumber : ''}</div>
-          <table style="margin-top:6px;margin-left:auto;font-size:10px;border-collapse:collapse;border:1px solid #1a5fa8;border-radius:4px">
-            <tr><td style="padding:2px 8px;color:#555;border-bottom:0.5px solid #ddd">Docket No.</td><td style="padding:2px 8px;font-weight:700;border-bottom:0.5px solid #ddd">${d.docNo || 'DRAFT'}</td></tr>
-            <tr><td style="padding:2px 8px;color:#555;border-bottom:0.5px solid #ddd">Request date</td><td style="padding:2px 8px;font-weight:700;border-bottom:0.5px solid #ddd">${d.requestDate || '-'}</td></tr>
-            <tr><td style="padding:2px 8px;color:#555">Send to</td><td style="padding:2px 8px;font-weight:700">${d.sendTo || '-'}</td></tr>
-          </table>
-        </div>
+
+    <!-- HEADER: Logo + Title side by side -->
+    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2.5px solid #1a5fa8;padding-bottom:10px;margin-bottom:10px">
+      <div style="flex:1">
+        ${logoDataUrl
+          ? `<img src="${logoDataUrl}" style="max-height:80px;max-width:300px;object-fit:contain;display:block" alt="ATMI GROUP">`
+          : `<div style="display:flex;align-items:center;gap:8px"><div style="width:44px;height:44px;border-radius:50%;background:#1a5fa8;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">ATMI</div><div style="font-size:14px;font-weight:700;color:#1a5fa8">ATMI GROUP</div></div>`
+        }
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:20px;font-weight:900;color:#1a5fa8;letter-spacing:1px;text-transform:uppercase">MEMO SHEET</div>
+        <div style="font-size:16px;font-weight:700;color:#1a5fa8;letter-spacing:0.5px">DELIVERY DOCKET</div>
       </div>
     </div>
+
+    <!-- DOCKET INFO: full width table like items -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:10px;font-size:11px;border:1.5px solid #1a5fa8">
+      <thead>
+        <tr style="background:#1a5fa8">
+          <th style="color:#fff;padding:6px 10px;text-align:left;font-size:11px;width:25%">Docket No.</th>
+          <th style="color:#fff;padding:6px 10px;text-align:left;font-size:11px;width:25%">Request Date</th>
+          <th style="color:#fff;padding:6px 10px;text-align:left;font-size:11px;width:25%">Project</th>
+          <th style="color:#fff;padding:6px 10px;text-align:left;font-size:11px;width:25%">Job Number</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:7px 10px;font-weight:700;font-size:13px;border-right:1px solid #ddd">${d.docNo || 'DRAFT'}</td>
+          <td style="padding:7px 10px;font-weight:600;font-size:12px;border-right:1px solid #ddd">${d.requestDate || '-'}</td>
+          <td style="padding:7px 10px;font-weight:600;font-size:12px;border-right:1px solid #ddd">${d.project || '-'}</td>
+          <td style="padding:7px 10px;font-weight:600;font-size:12px">${d.jobNumber || '-'}</td>
+        </tr>
+      </tbody>
+    </table>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:10px;font-size:11px;border:1.5px solid #1a5fa8;border-top:none">
+      <thead>
+        <tr style="background:#e8f0fb">
+          <th style="color:#1a5fa8;padding:6px 10px;text-align:left;font-size:11px" colspan="2">Send To</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:7px 10px;font-weight:600;font-size:12px">${d.sendTo || '-'}</td>
+        </tr>
+      </tbody>
+    </table>
 
     <table class="pt">
       <thead><tr>
@@ -443,8 +470,26 @@ async function saveDocket() {
   if (rows.length === 0) { showMsg('msg-new', 'Please add at least one item.', 'error'); return; }
   const { items, valid } = getFormItems();
   if (!valid) { showMsg('msg-new', 'Please fill in description for all items.', 'error'); return; }
-  const payload = { action: 'createDocket', ...getFormHeader(), items };
+
+  // Upload images first
+  showMsg('msg-new', 'Uploading images...', 'success');
+  for (let item of items) {
+    if (item.imageData) {
+      try {
+        const res = await fetch(API, { method: 'POST', body: JSON.stringify({
+          action: 'uploadImage',
+          imageData: item.imageData,
+          mimeType: item.mimeType,
+          fileName: item.fileName
+        })});
+        const data = await res.json();
+        if (data.success) item.fileId = data.fileId;
+      } catch(e) { console.error('Image upload failed', e); }
+    }
+  }
+
   showMsg('msg-new', 'Saving docket...', 'success');
+  const payload = { action: 'createDocket', ...getFormHeader(), items };
   try {
     const res = await fetch(API, { method: 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
@@ -622,6 +667,26 @@ async function markSigned(docNo, type) {
     else showMsg('msg-detail', 'Error updating.', 'error');
   } catch (e) { showMsg('msg-detail', 'Connection error.', 'error'); }
 }
+
+// Load logo via API
+let logoDataUrl = null;
+async function loadLogo() {
+  try {
+    const res = await fetch(API + '?action=getLogoBase64');
+    const data = await res.json();
+    if (data.success) {
+      logoDataUrl = data.dataUrl;
+      const logoEl = document.getElementById('company-logo');
+      const fallbackEl = document.getElementById('logo-fallback');
+      logoEl.src = logoDataUrl;
+      logoEl.style.display = 'block';
+      fallbackEl.style.display = 'none';
+      const printLogo = document.getElementById('print-logo');
+      if (printLogo) printLogo.src = logoDataUrl;
+    }
+  } catch(e) { console.log('Logo load failed', e); }
+}
+loadLogo();
 
 // Init
 const today = new Date().toISOString().split('T')[0];
