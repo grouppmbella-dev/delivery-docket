@@ -46,13 +46,10 @@ function getNextRowNo() {
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return 1;
-  const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  // Filter only valid positive integers (not text, not #NUM!, not formulas)
-  const nums = data
-    .map(r => r[0])
-    .filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v) && v > 0 && Math.floor(v) === v);
-  if (nums.length === 0) return 1;
-  return Math.max(...nums) + 1;
+  // Count actual DDPM rows instead of reading col A (avoids #NUM! issues)
+  const data = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  const count = data.filter(r => String(r[0]).startsWith('DDPM/')).length;
+  return count + 1;
 }
 
 function createDocket(data) {
@@ -111,7 +108,6 @@ function getDockets() {
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return { success: true, data: [] };
-  // Start from row 2 (skip row1=headers)
   const data = sheet.getRange(2, 1, lastRow - 1, 30).getValues();
   const headers = ['docNoNo','docNo','requestDate','project','jobNumber','sendTo',
     'itemNo','description','qty','unit','picture','remark',
@@ -120,11 +116,17 @@ function getDockets() {
     'nameDeliveryBy','deliveryDate','deliverySigned','deliverySignedDate',
     'carNumberPlate','nameReceivedBy','receivedDate','receivedSigned',
     'receivedSignedDate','status'];
-  const result = data.filter(row => row[1] !== '' && row[1] !== null && row[1] !== 'Doc.no' && !String(row[1]).includes('Doc')).map(row => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
+  const result = data
+    .filter(row => {
+      const docNo = String(row[1] || '');
+      // Skip header row and empty rows
+      return docNo.startsWith('DDPM/');
+    })
+    .map(row => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = row[i]);
+      return obj;
+    });
   return { success: true, data: result };
 }
 
@@ -141,7 +143,7 @@ function getDocketById(docNo) {
     'carNumberPlate','nameReceivedBy','receivedDate','receivedSigned',
     'receivedSignedDate','status'];
   const items = data
-    .filter(row => row[1] === docNo)
+    .filter(row => String(row[1]) === String(docNo) && String(row[1]).startsWith('DDPM/'))
     .map(row => {
       const obj = {};
       headers.forEach((h, i) => obj[h] = row[i]);
