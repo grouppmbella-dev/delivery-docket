@@ -103,11 +103,16 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
 <body>
 
 <div class="app">
-  <div class="topbar">
-    <div class="logo-circle">ATMI</div>
-    <div>
-      <div class="topbar-title">ATMI GROUP</div>
-      <div class="topbar-sub">Delivery Docket System</div>
+  <div class="topbar" style="padding:8px 16px">
+    <img src="https://drive.google.com/thumbnail?id=1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP&sz=w300" 
+         style="max-height:56px;max-width:260px;object-fit:contain" alt="ATMI GROUP"
+         onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'">
+    <div id="logo-fallback" style="display:none;align-items:center;gap:12px">
+      <div class="logo-circle">ATMI</div>
+      <div>
+        <div class="topbar-title">ATMI GROUP</div>
+        <div class="topbar-sub">Delivery Docket System</div>
+      </div>
     </div>
   </div>
 
@@ -341,19 +346,21 @@ function buildPrintPage(items, header, totalPages, pageNum) {
 
   return `
   <div class="print-doc">
-    <div class="ph">
-      <div class="ph-left">
-        <div class="ph-logo">ATMI</div>
-        <div>
-          <div class="ph-company">ATMI GROUP</div>
-          <div class="ph-doctitle">MEMO SHEET DELIVERY DOCKET</div>
-          <div class="ph-sub">${d.project || ''} ${d.jobNumber ? '· ' + d.jobNumber : ''}</div>
+    <div style="border-bottom:2px solid #1a5fa8;margin-bottom:10px;padding-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1">
+          <img src="https://drive.google.com/thumbnail?id=1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP&sz=w400" 
+               style="max-height:70px;max-width:320px;object-fit:contain;display:block" alt="ATMI GROUP">
         </div>
-      </div>
-      <div class="ph-meta">
-        <div class="ph-meta-row"><span>Docket No.</span><strong>${d.docNo || 'DRAFT'}</strong></div>
-        <div class="ph-meta-row"><span>Request date</span><strong>${d.requestDate || '-'}</strong></div>
-        <div class="ph-meta-row"><span>Send to</span><strong>${d.sendTo || '-'}</strong></div>
+        <div style="text-align:right;min-width:180px">
+          <div style="font-size:15px;font-weight:700;color:#1a5fa8;letter-spacing:0.5px">MEMO SHEET DELIVERY DOCKET</div>
+          <div style="font-size:10px;color:#555;margin-top:4px">${d.project || ''} ${d.jobNumber ? '· ' + d.jobNumber : ''}</div>
+          <table style="margin-top:6px;margin-left:auto;font-size:10px;border-collapse:collapse;border:1px solid #1a5fa8;border-radius:4px">
+            <tr><td style="padding:2px 8px;color:#555;border-bottom:0.5px solid #ddd">Docket No.</td><td style="padding:2px 8px;font-weight:700;border-bottom:0.5px solid #ddd">${d.docNo || 'DRAFT'}</td></tr>
+            <tr><td style="padding:2px 8px;color:#555;border-bottom:0.5px solid #ddd">Request date</td><td style="padding:2px 8px;font-weight:700;border-bottom:0.5px solid #ddd">${d.requestDate || '-'}</td></tr>
+            <tr><td style="padding:2px 8px;color:#555">Send to</td><td style="padding:2px 8px;font-weight:700">${d.sendTo || '-'}</td></tr>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -455,6 +462,9 @@ function clearForm() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('f-reqdate').value = today;
   document.getElementById('f-issuedate').value = today;
+  document.getElementById('f-checkdate').value = today;
+  document.getElementById('f-deliverydate').value = today;
+  document.getElementById('f-receiveddate').value = today;
 }
 
 function badgeHtml(status) {
@@ -475,20 +485,44 @@ async function loadDockets() {
   } catch (e) { container.innerHTML = '<div class="loading">Connection error.</div>'; }
 }
 
+function fmtDate(val) {
+  if (!val) return '-';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function renderDocketList(dockets) {
   const container = document.getElementById('docket-list-container');
   if (dockets.length === 0) { container.innerHTML = '<div class="loading">No dockets found.</div>'; return; }
   const unique = {};
-  dockets.forEach(r => { if (!unique[r.docNo]) unique[r.docNo] = { ...r, itemCount: 0 }; unique[r.docNo].itemCount++; });
+  dockets.forEach(r => {
+    if (!unique[r.docNo]) unique[r.docNo] = { ...r, itemCount: 0, pictures: [] };
+    unique[r.docNo].itemCount++;
+    if (r.picture) unique[r.docNo].pictures.push(r.picture);
+  });
   const list = Object.values(unique).reverse();
-  container.innerHTML = '<div class="docket-list">' + list.map(d => `
+  container.innerHTML = '<div class="docket-list">' + list.map(d => {
+    const thumbs = d.pictures.slice(0, 3).map(pic =>
+      `<img src="https://drive.google.com/thumbnail?id=${pic}&sz=w80" 
+            style="width:44px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #ddd" 
+            onerror="this.style.display='none'" alt="">`
+    ).join('');
+    const thumbsHtml = thumbs
+      ? `<div style="display:flex;gap:4px;align-items:center">${thumbs}</div>`
+      : `<div style="width:44px;height:44px;border-radius:5px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:18px;color:#ccc">📷</div>`;
+    return `
     <div class="docket-item" onclick="viewDocket('${d.docNo}')">
-      <div>
-        <div style="font-weight:600;font-size:14px">${d.docNo}</div>
-        <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${d.requestDate || '-'}</div>
+      <div style="display:flex;align-items:center;gap:12px;flex:1">
+        ${thumbsHtml}
+        <div>
+          <div style="font-weight:600;font-size:14px">${d.docNo}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px">${d.project || '-'} · ${d.itemCount} item${d.itemCount > 1 ? 's' : ''} · ${fmtDate(d.requestDate)}</div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">${badgeHtml(d.status)} ›</div>
-    </div>`).join('') + '</div>';
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${badgeHtml(d.status)} ›</div>
+    </div>`;
+  }).join('') + '</div>';
 }
 
 function filterDockets() {
@@ -593,6 +627,9 @@ async function markSigned(docNo, type) {
 const today = new Date().toISOString().split('T')[0];
 document.getElementById('f-reqdate').value = today;
 document.getElementById('f-issuedate').value = today;
+document.getElementById('f-checkdate').value = today;
+document.getElementById('f-deliverydate').value = today;
+document.getElementById('f-receiveddate').value = today;
 addItem();
 </script>
 </body>
