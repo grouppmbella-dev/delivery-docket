@@ -105,8 +105,12 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
 
 <div class="app">
   <div class="topbar" style="padding:8px 16px">
-    <img id="company-logo" style="max-height:56px;max-width:260px;object-fit:contain;display:none" alt="ATMI GROUP">
-    <div id="logo-fallback" style="display:flex;align-items:center;gap:12px">
+    <img id="company-logo"
+         src="https://drive.google.com/uc?export=view&id=1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP"
+         style="max-height:56px;max-width:260px;object-fit:contain"
+         onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'"
+         alt="ATMI GROUP">
+    <div id="logo-fallback" style="display:none;align-items:center;gap:12px">
       <div class="logo-circle">ATMI</div>
       <div>
         <div class="topbar-title">ATMI GROUP</div>
@@ -920,22 +924,9 @@ async function markSigned(docNo, type) {
   } catch (e) { showMsg('msg-detail', 'Connection error.', 'error'); }
 }
 
-// Logo - fetch via Apps Script to bypass CORS
-let logoDataUrl = null;
-async function loadLogo() {
-  try {
-    const res = await fetch(API + '?action=getLogoBase64');
-    const data = await res.json();
-    if (data.success && data.dataUrl) {
-      logoDataUrl = data.dataUrl;
-      const el = document.getElementById('company-logo');
-      el.src = logoDataUrl;
-      el.style.display = 'block';
-      document.getElementById('logo-fallback').style.display = 'none';
-    }
-  } catch(e) { console.log('Logo load failed', e); }
-}
-loadLogo();
+// Logo - direct Drive thumbnail
+const LOGO_URL = 'https://drive.google.com/uc?export=view&id=1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP';
+let logoDataUrl = LOGO_URL;
 
 // Init
 const today = new Date().toISOString().split('T')[0];
