@@ -225,7 +225,7 @@ body{font-family:Arial,sans-serif;font-size:14px;background:#f4f5f7;color:#1a1a1
     <div class="actions no-print">
       <button class="btn btn-danger btn-sm" onclick="clearForm()">✕ Clear</button>
       <button class="btn btn-print btn-sm" onclick="previewAndPrint()">⎙ Print preview</button>
-      <button class="btn btn-primary" onclick="saveDocket()">💾 Save docket</button>
+      <button class="btn btn-primary" id="btn-save-new" onclick="saveDocket()">💾 Save docket</button>
     </div>
   </div>
 
@@ -274,6 +274,44 @@ let itemCount = 0;
 let uploadedFiles = {};
 let allDocketsCache = [];
 let currentDocketItems = null;
+let isSaving = false;
+
+// ส่ง token ไปกับทุกคำขอ — ถ้า token หมดอายุ/ไม่ถูกต้อง เด้งกลับหน้า login
+async function apiFetch(url, opts) {
+  const token = localStorage.getItem('dd_token') || '';
+  opts = opts || {};
+  if (opts.method === 'POST') {
+    const body = JSON.parse(opts.body);
+    body.token = token;
+    opts = Object.assign({}, opts, { body: JSON.stringify(body) });
+  } else {
+    url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+  }
+  const res = await fetch(url, opts);
+  const data = await res.json();
+  if (data && data.authError) {
+    logout();
+    showLoginError('Session expired. Please sign in again.');
+    throw new Error('auth');
+  }
+  return { json: async () => data };
+}
+
+// กันอักขระพิเศษ เช่น " (นิ้ว) ทำให้ข้อความในช่องแก้ไขถูกตัดหาย
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ล็อกปุ่มระหว่างบันทึก กันกดซ้ำ
+function setBusy(btnId, busy, busyText) {
+  isSaving = busy;
+  const b = document.getElementById(btnId);
+  if (!b) return;
+  if (busy) { b.dataset.label = b.innerHTML; b.innerHTML = busyText || '⏳ Saving...'; b.disabled = true; b.style.opacity = '0.6'; }
+  else { if (b.dataset.label) b.innerHTML = b.dataset.label; b.disabled = false; b.style.opacity = ''; }
+}
 
 function showPage(p) {
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
@@ -548,6 +586,9 @@ async function saveDocket() {
   if (rows.length === 0) { showMsg('msg-new', 'Please add at least one item.', 'error'); return; }
   const { items, valid } = getFormItems();
   if (!valid) { showMsg('msg-new', 'Please fill in description for all items.', 'error'); return; }
+  if (isSaving) return;
+  setBusy('btn-save-new', true);
+  try {
 
   // Step 1: Upload images one by one first
   let hasImages = items.some(i => i.imageData);
@@ -556,7 +597,7 @@ async function saveDocket() {
   for (let item of items) {
     if (item.imageData && item.fileName) {
       try {
-        const res = await fetch(API, {
+        const res = await apiFetch(API, {
           method: 'POST',
           body: JSON.stringify({
             action: 'uploadImage',
@@ -578,7 +619,7 @@ async function saveDocket() {
   showMsg('msg-new', 'Saving docket...', 'success');
   const payload = { action: 'createDocket', ...getFormHeader(), items };
   try {
-    const res = await fetch(API, { method: 'POST', body: JSON.stringify(payload) });
+    const res = await apiFetch(API, { method: 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
     if (data.success) {
       showMsg('msg-new', '✓ Docket ' + data.docNo + ' saved successfully!', 'success');
@@ -586,7 +627,8 @@ async function saveDocket() {
     } else {
       showMsg('msg-new', 'Error: ' + (data.error || 'Unknown error'), 'error');
     }
-  } catch (e) { showMsg('msg-new', 'Connection error. Please try again.', 'error'); }
+  } catch (e) { showMsg('msg-new', 'Connection error — กรุณาเช็คใน All Dockets ก่อนกดบันทึกซ้ำ', 'error'); }
+  } finally { setBusy('btn-save-new', false); }
 }
 
 function clearForm() {
@@ -619,7 +661,7 @@ async function loadDockets() {
   const container = document.getElementById('docket-list-container');
   container.innerHTML = '<div class="loading">Loading dockets...</div>';
   try {
-    const res = await fetch(API + '?action=getDockets');
+    const res = await apiFetch(API + '?action=getDockets');
     const data = await res.json();
     if (!data.success) { container.innerHTML = '<div class="loading">Failed to load.</div>'; return; }
     allDocketsCache = data.data || [];
@@ -744,7 +786,7 @@ async function viewDocket(docNo) {
   const container = document.getElementById('detail-container');
   container.innerHTML = '<div class="loading">Loading...</div>';
   try {
-    const res = await fetch(API + '?action=getDocketById&docNo=' + encodeURIComponent(docNo));
+    const res = await apiFetch(API + '?action=getDocketById&docNo=' + encodeURIComponent(docNo));
     const data = await res.json();
     if (!data.success || !data.data.length) { container.innerHTML = '<div class="loading">Not found.</div>'; return; }
     currentDocketItems = data.data;
@@ -835,10 +877,10 @@ function toggleEditMode() {
       <div class="section-title">Docket information <span style="font-size:11px;color:#f59e0b;font-weight:400">(Doc.no: ${currentDocNo} — cannot be changed)</span></div>
       <div class="grid3" style="margin-bottom:12px">
         <div class="field"><label>Request date</label><input type="date" id="e-reqdate" value="${toInputDate(d.requestDate)}"></div>
-        <div class="field"><label>Project</label><input type="text" id="e-project" value="${d.project||''}"></div>
-        <div class="field"><label>Job number</label><input type="text" id="e-jobno" value="${d.jobNumber||''}"></div>
+        <div class="field"><label>Project</label><input type="text" id="e-project" value="${esc(d.project)}"></div>
+        <div class="field"><label>Job number</label><input type="text" id="e-jobno" value="${esc(d.jobNumber)}"></div>
       </div>
-      <div class="field"><label>Send to</label><input type="text" id="e-sendto" value="${d.sendTo||''}"></div>
+      <div class="field"><label>Send to</label><input type="text" id="e-sendto" value="${esc(d.sendTo)}"></div>
     </div>
 
     <div class="card">
@@ -863,20 +905,20 @@ function toggleEditMode() {
     <div class="card">
       <div class="section-title">Responsible persons</div>
       <div class="grid2" style="margin-bottom:12px">
-        <div class="field"><label>Issue by</label><input type="text" id="e-issueby" value="${d.nameIssueBy||''}"></div>
+        <div class="field"><label>Issue by</label><input type="text" id="e-issueby" value="${esc(d.nameIssueBy)}"></div>
         <div class="field"><label>Issue date</label><input type="date" id="e-issuedate" value="${toInputDate(d.issueDate)}"></div>
       </div>
       <div class="grid2" style="margin-bottom:12px">
-        <div class="field"><label>Check by</label><input type="text" id="e-checkby" value="${d.nameCheckBy||''}"></div>
+        <div class="field"><label>Check by</label><input type="text" id="e-checkby" value="${esc(d.nameCheckBy)}"></div>
         <div class="field"><label>Check date</label><input type="date" id="e-checkdate" value="${toInputDate(d.checkDate)}"></div>
       </div>
       <div class="grid3" style="margin-bottom:12px">
-        <div class="field"><label>Delivery by</label><input type="text" id="e-deliveryby" value="${d.nameDeliveryBy||''}"></div>
-        <div class="field"><label>Car number plate</label><input type="text" id="e-carplate" value="${d.carNumberPlate||''}"></div>
+        <div class="field"><label>Delivery by</label><input type="text" id="e-deliveryby" value="${esc(d.nameDeliveryBy)}"></div>
+        <div class="field"><label>Car number plate</label><input type="text" id="e-carplate" value="${esc(d.carNumberPlate)}"></div>
         <div class="field"><label>Delivery date</label><input type="date" id="e-deliverydate" value="${toInputDate(d.deliveryDate)}"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>Received by</label><input type="text" id="e-receivedby" value="${d.nameReceivedBy||''}"></div>
+        <div class="field"><label>Received by</label><input type="text" id="e-receivedby" value="${esc(d.nameReceivedBy)}"></div>
         <div class="field"><label>Received date</label><input type="date" id="e-receiveddate" value="${toInputDate(d.receivedDate)}"></div>
       </div>
     </div>`;
@@ -894,16 +936,16 @@ function toggleEditMode() {
     tr.id = 'edit-item-row-' + n;
     tr.innerHTML = `
       <td style="text-align:center;color:#888">${n}</td>
-      <td><input type="text" placeholder="Description" id="e-desc-${n}" value="${item.description||''}"></td>
-      <td><input type="number" id="e-qty-${n}" value="${item.qty||''}"></td>
-      <td><input type="text" id="e-unit-${n}" value="${item.unit||''}"></td>
+      <td><input type="text" placeholder="Description" id="e-desc-${n}" value="${esc(item.description)}"></td>
+      <td><input type="number" id="e-qty-${n}" value="${esc(item.qty)}"></td>
+      <td><input type="text" id="e-unit-${n}" value="${esc(item.unit)}"></td>
       <td>
         <input type="file" accept="image/*" id="e-file-${n}" style="display:none" onchange="handleEditFile(${n},this)">
         <button class="btn btn-sm" onclick="document.getElementById('e-file-${n}').click()">📷</button>
         <div id="e-fname-${n}" style="font-size:10px;color:#888">${item.picture ? '✓ photo' : ''}</div>
-        <input type="hidden" id="e-picid-${n}" value="${item.picture||''}">
+        <input type="hidden" id="e-picid-${n}" value="${esc(item.picture)}">
       </td>
-      <td><input type="text" id="e-remark-${n}" value="${item.remark||''}"></td>
+      <td><input type="text" id="e-remark-${n}" value="${esc(item.remark)}"></td>
       <td><button class="btn btn-sm" onclick="removeEditItem(${n})" style="color:#c0392b">✕</button></td>`;
     tbody.appendChild(tr);
   });
@@ -995,18 +1037,24 @@ async function saveEdit() {
     });
   });
   if (!valid) { showMsg('msg-detail', 'Please fill in description for all items.', 'error'); return; }
+  if (isSaving) return;
+  setBusy('btn-save-edit', true);
+  try {
 
   // Upload new images
   showMsg('msg-detail', 'Uploading images...', 'success');
   for (let item of items) {
     if (item.imageData) {
       try {
-        const res = await fetch(API, { method: 'POST', body: JSON.stringify({
+        const res = await apiFetch(API, { method: 'POST', body: JSON.stringify({
           action: 'uploadImage', imageData: item.imageData, mimeType: item.mimeType, fileName: item.fileName
         })});
         const data = await res.json();
-        if (data.success) item.fileId = data.fileId;
-      } catch(e) {}
+        if (data.success && data.fileId) {
+          item.fileId = data.fileId;
+          item.imageData = null; // อัปโหลดแล้ว ไม่ต้องส่งรูปซ้ำ
+        }
+      } catch(e) { console.error('Upload failed', e); }
     }
   }
 
@@ -1031,7 +1079,7 @@ async function saveEdit() {
   };
 
   try {
-    const res = await fetch(API, { method: 'POST', body: JSON.stringify(payload) });
+    const res = await apiFetch(API, { method: 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
     if (data.success) {
       showMsg('msg-detail', '✓ Updated successfully!', 'success');
@@ -1044,14 +1092,15 @@ async function saveEdit() {
     } else {
       showMsg('msg-detail', 'Error: ' + (data.error || 'Unknown'), 'error');
     }
-  } catch(e) { showMsg('msg-detail', 'Connection error.', 'error'); }
+  } catch(e) { showMsg('msg-detail', 'Connection error — ข้อมูลยังอยู่บนหน้าจอ กด Save changes ได้อีกครั้ง', 'error'); }
+  } finally { setBusy('btn-save-edit', false); }
 }
 
 async function deleteItem(docNo, itemNo) {
   if (!confirm('Delete item ' + itemNo + ' from ' + docNo + '?')) return;
   showMsg('msg-detail', 'Deleting...', 'success');
   try {
-    const res = await fetch(API, { method: 'POST', body: JSON.stringify({
+    const res = await apiFetch(API, { method: 'POST', body: JSON.stringify({
       action: 'deleteItem', docNo, itemNo
     })});
     const data = await res.json();
@@ -1072,7 +1121,7 @@ async function deleteItem(docNo, itemNo) {
 async function markSigned(docNo, type) {
   showMsg('msg-detail', 'Updating...', 'success');
   try {
-    const res = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'updateSigned', docNo, type }) });
+    const res = await apiFetch(API, { method: 'POST', body: JSON.stringify({ action: 'updateSigned', docNo, type }) });
     const data = await res.json();
     if (data.success) { showMsg('msg-detail', '✓ Updated successfully!', 'success'); viewDocket(docNo); }
     else showMsg('msg-detail', 'Error updating.', 'error');
@@ -1083,45 +1132,59 @@ async function markSigned(docNo, type) {
 const LOGO_URL = 'https://lh3.googleusercontent.com/d/1He5NOU_Twr-CqctiFIuJFNe5wf-d-cTP';
 let logoDataUrl = LOGO_URL;
 
-// ---- LOGIN ----
-const PASSWORD = 'PM9999';
+// ---- LOGIN (เช็ครหัสที่ Apps Script ไม่มีรหัสอยู่ในหน้าเว็บแล้ว) ----
 let currentUser = '';
 
-function doLogin() {
-  const name = document.getElementById('login-name').value.trim();
-  const pass = document.getElementById('login-password').value.trim();
+function showLoginError(text) {
   const errEl = document.getElementById('login-error');
-
-  if (!name) { errEl.textContent = 'Please enter your name.'; errEl.style.display = 'block'; return; }
-  if (pass !== PASSWORD) { errEl.textContent = 'Incorrect password. Please try again.'; errEl.style.display = 'block'; return; }
-
-  // Save to localStorage
-  localStorage.setItem('dd_user', name);
-  localStorage.setItem('dd_auth', '1');
-  currentUser = name;
-  document.getElementById('login-overlay').style.display = 'none';
-
-  // Set Issue by to current user
-  const issueByEl = document.getElementById('f-issueby');
-  if (issueByEl) issueByEl.value = currentUser;
-
-  // Show name in topbar
-  document.getElementById('topbar-user').textContent = '👤 ' + currentUser;
+  errEl.textContent = text;
+  errEl.style.display = 'block';
 }
 
-function checkLogin() {
-  const auth = localStorage.getItem('dd_auth');
-  const name = localStorage.getItem('dd_user');
-  if (auth === '1' && name) {
-    currentUser = name;
-    document.getElementById('login-overlay').style.display = 'none';
-    document.getElementById('topbar-user').textContent = '👤 ' + currentUser;
-    const issueByEl = document.getElementById('f-issueby');
-    if (issueByEl) issueByEl.value = currentUser;
+function enterApp(name) {
+  currentUser = name;
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('topbar-user').textContent = '👤 ' + currentUser;
+  const issueByEl = document.getElementById('f-issueby');
+  if (issueByEl) issueByEl.value = currentUser;
+}
+
+async function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  const pass = document.getElementById('login-password').value.trim();
+  document.getElementById('login-error').style.display = 'none';
+  if (!name) { showLoginError('Please enter your name.'); return; }
+  if (!pass) { showLoginError('Please enter password.'); return; }
+
+  const btn = document.querySelector('.login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try {
+    const res = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'login', name, password: pass }) });
+    const data = await res.json();
+    if (data.success && data.token) {
+      localStorage.setItem('dd_token', data.token);
+      localStorage.setItem('dd_user', name);
+      localStorage.removeItem('dd_auth'); // ของระบบเก่า
+      document.getElementById('login-password').value = '';
+      enterApp(name);
+    } else {
+      showLoginError(data.error || 'Incorrect password. Please try again.');
+    }
+  } catch (e) {
+    showLoginError('Connection error. Please try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign in';
   }
 }
 
+function checkLogin() {
+  const token = localStorage.getItem('dd_token');
+  const name = localStorage.getItem('dd_user');
+  if (token && name) enterApp(name);   // ถ้า token หมดอายุ server จะตอบกลับแล้วเด้งไปหน้า login เอง
+}
+
 function logout() {
+  localStorage.removeItem('dd_token');
   localStorage.removeItem('dd_auth');
   localStorage.removeItem('dd_user');
   currentUser = '';
